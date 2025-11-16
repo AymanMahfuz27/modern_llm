@@ -1,1 +1,3 @@
-.venv
+other_repos
+!clone_repos.ps1
+.cursor
