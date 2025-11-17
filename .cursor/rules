@@ -1,0 +1,136 @@
+description: Global rule set to enforce clean, readable, maintainable code and avoid AI-generated boilerplate patterns.
+globs:
+  - "**/*"
+alwaysApply: true
+---
+
+# Clean Code Principles (Always)
+
+- Prioritise *clarity* over cleverness: functions should do one thing, have a clear name, clean signature, minimal side-effects.
+- Structure code so that *illegal states are unrepresentable*: use explicit types or assertions at the start of functions.
+- At the top of every function, validate inputs or exit fast with a specific error rather than deep nested logic.
+- Use meaningful names that reflect the domain; avoid generic names like `handleData`, `processInput` without context.
+- Keep functions short (ideally < 30 lines) and focused; break out helpers when logic grows.
+- Document *why* something is done (in comments or docstrings), not *what* the code does — the code should show the what.
+- Prefer explicit interfaces/types at module boundaries; avoid untyped “any” or generic parameters when working in typed languages.
+- Tests are mandatory: at least one unit test covering edge cases plus at least one negative or error condition per exposed API.
+- Avoid speculative abstraction: add abstractions (interfaces, dependency injection, config flags) *only when justified*, not by default.
+
+# Error & Exception Handling
+
+- Use narrowly scoped exception or error types; do not catch broad exceptions like `Exception`/`Throwable` unless you intend to rethrow or handle cleanup.
+- Never silently swallow errors or return default empty/fallback values without logging or propagating the cause.
+- Error messages should be clear and actionable (e.g., `"User ID missing: cannot fetch profile"`), not generic `"Something went wrong"`.
+- Do *not* wrap an entire function in a `try/except` block by default; handle errors at the closest layer where you can meaningfully respond or fail fast.
+- Fail fast if the contract is broken; do not hide the problem behind fallback logic.
+
+# Comments & Documentation Style
+
+- Write docstrings that specify pre-conditions, post-conditions, complexity, and invariants. **Critically, for deep learning/ML implementations (e.g., Stable Diffusion, GPT-5), include the mathematical foundations and research context directly in the docstring or inline comments.** This means:
+  - **Equations**: Write out the exact formulas being implemented (e.g., attention mechanism, diffusion forward/reverse process, loss functions).
+  - **Research context**: Reference the paper, section, or theorem that justifies the approach (e.g., "Vaswani et al. 2017, §3.2.1" or "Ho et al. 2020 DDPM, Eq. 4").
+  - **Intuition**: Briefly explain *why* this math works or what problem it solves in the model architecture.
+
+  For example:
+  ```python
+  def scaled_dot_product_attention(Q, K, V, mask=None):
+      """Compute scaled dot-product attention (Vaswani et al., 2017).
+      
+      Math:
+          Attention(Q, K, V) = softmax(Q K^T / sqrt(d_k)) V
+          where d_k is the dimension of the key vectors.
+      
+      Reasoning:
+          - Scaling by 1/sqrt(d_k) prevents dot products from growing too large,
+            which would push softmax into regions with vanishing gradients.
+          - This is the core mechanism in Transformer self-attention (§3.2.1).
+      
+      Pre: Q, K, V are tensors of shape (batch, seq_len, d_k) or (batch, heads, seq_len, d_k).
+      Post: returns attention-weighted values of same shape as V.
+      """
+  ```
+
+- Use inline comments to document **step-by-step derivations or algorithmic choices** when implementing complex operations (e.g., reparameterization trick in VAEs, noise scheduling in diffusion, layer normalization). Explain the math at each critical line, not just the high-level intent.
+
+- At the **top of each module or major section**, include a high-level architecture comment that:
+  - States which paper/model component is being implemented.
+  - Summarizes the key equations or algorithmic flow.
+  - Notes any deviations from the original paper or design decisions (e.g., "Using learned positional embeddings instead of sinusoidal per Vaswani et al.").
+
+- For non-trivial functions (loss computations, sampling loops, forward/backward diffusion steps), **show the math inline** where it's being computed—so you (and technical reviewers) can trace from equation to code without jumping to external references.
+
+- Keep code self-documenting with meaningful names, but **supplement with deep technical commentary**: the goal is that anyone reading the code (including future you) can understand both *what* is implemented and *why it works mathematically/theoretically*, grounded in the research literature.
+
+### For this project, the key is to show very high skill in terms of programming and system design thinking, while also having clean comments that I can follow in case I forget what something is doing and why something is there. For both myself and technical recruiters at frontier AI labs, the comments are there for us. We want to therefore comment high level architectural things as well perhaps at the top of every file too.  
+
+
+# Avoiding Common LLM-Generated Code Smells
+
+* Do **not** generate code with broad `try/catch` (or `try/except`) wrapping large functions with generic fallback empty returns.
+* Do **not** add boilerplate scaffolding (e.g., aggressive main wrappers, `argparse` templates, logging setup) **unless** truly required for the task.
+* Do **not** produce verbose commentary or documentation that simply re-states the code (i.e., “This function computes the xG value, then returns it”).
+* Do **not** add abstractions/config flags/interfaces “just in case” when there is no present need — leave YAGNI.
+* Ensure generated code includes appropriate **guards** (input validation, state checks) as human-engineered code would — missing guards are a dominant failure mode in LLM code.
+* Ensure the code’s *tests* cover negative cases, edge cases and property invariants — avoid happy-path only test suites that LLMs tend to produce.
+
+# Representative Example(s)
+
+**Bad (LLM-style):**
+
+```python
+def process_data(input_string: str) -> str:
+    import logging
+    logging.basicConfig(level=logging.INFO)
+    try:
+        if input_string is None or len(input_string) == 0:
+            logging.warning("Empty input provided")
+            return ""
+        result = input_string.strip().lower()
+        logging.info("Processed successfully")
+        return result
+    except Exception as e:
+        logging.exception(f"Error processing data: {e}")
+        return ""
+```
+
+**Good (Human-tight style you should aim for):**
+
+```python
+def normalize_slug(s: str) -> str:
+    """Return a lowercase, hyphenated slug.
+    Pre: s contains at least one alphanumeric.
+    Post: result matches `[a-z0-9]+(?:-[a-z0-9]+)*`.
+    """
+    if not s or not any(ch.isalnum() for ch in s):
+        raise ValueError("slug requires at least one alphanumeric character")
+
+    words = "".join(ch.lower() if ch.isalnum() else " " for ch in s).split()
+    return "-".join(words)
+```
+
+**Additional good example (edge + guard style):**
+
+```python
+def compute_rate(trials: int, successes: int) -> float:
+    """Compute success rate.
+    Pre: trials > 0 and 0 <= successes <= trials.
+    Post: returns a float in [0.0, 1.0].
+    """
+    if trials <= 0:
+        raise ValueError(f"Invalid trials value: {trials}")
+    if successes < 0 or successes > trials:
+        raise ValueError(f"Invalid successes value: successes={successes}, trials={trials}")
+    return successes / trials
+```
+
+# Tone & meta-rules for all models
+
+* Always treat the code-generation assistant as a *junior engineer* following your lead — you (the human) are the architect.
+* Always ask: “Does this new code match our contract, avoid abstractions we don’t need, and handle error/edge cases explicitly?”
+* If a proposed snippet includes multiple new files/configs/boilerplate, check whether the complexity is justified — otherwise simplify.
+* Audit the generated code for **guard checks**, **narrow exception handling**, **self-documenting names**, and **minimal required abstraction**.
+
+---
+
+```
+
