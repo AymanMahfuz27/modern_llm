@@ -13,6 +13,7 @@ from torch.cuda.amp import GradScaler, autocast
 from torch.nn.utils import clip_grad_norm_
 from torch.optim import Optimizer
 from torch.optim.lr_scheduler import _LRScheduler
+from tqdm.auto import tqdm
 
 from modern_llm.config.train_config import TrainingConfig
 from modern_llm.utils.checkpointing import save_checkpoint
@@ -63,36 +64,40 @@ class Trainer:
         accumulation_steps = self.config.gradient_accumulation_steps
         max_steps = self.config.max_steps
 
-        while self.global_step < max_steps:
-            for batch in self.train_dataloader:
-                loss = self._training_step(batch, accumulation_steps)
+        with tqdm(total=max_steps, desc="Training", unit="step", dynamic_ncols=True) as pbar:
+            while self.global_step < max_steps:
+                for batch in self.train_dataloader:
+                    prev_step = self.global_step
+                    loss = self._training_step(batch, accumulation_steps)
+                    if self.global_step > prev_step:
+                        pbar.update(self.global_step - prev_step)
+                    if self.global_step >= max_steps:
+                        break
+                    if self.config.log_every > 0 and self.global_step % self.config.log_every == 0:
+                        self.logger.info(
+                            "step=%d loss=%.4f lr=%.3e",
+                            self.global_step,
+                            loss,
+                            self.optimizer.param_groups[0]["lr"],
+                        )
+                    if (
+                        self.config.eval_every > 0
+                        and self.eval_dataloader
+                        and self.global_step % self.config.eval_every == 0
+                    ):
+                        metrics = self.evaluate()
+                        self.logger.info(
+                            "eval step=%d loss=%.4f ppl=%.2f",
+                            self.global_step,
+                            metrics["loss"],
+                            metrics["perplexity"],
+                        )
+                    if self.config.save_every > 0 and self.global_step % self.config.save_every == 0:
+                        self._save_checkpoint()
+                    if self.global_step >= max_steps:
+                        break
                 if self.global_step >= max_steps:
                     break
-                if self.config.log_every > 0 and self.global_step % self.config.log_every == 0:
-                    self.logger.info(
-                        "step=%d loss=%.4f lr=%.3e",
-                        self.global_step,
-                        loss,
-                        self.optimizer.param_groups[0]["lr"],
-                    )
-                if (
-                    self.config.eval_every > 0
-                    and self.eval_dataloader
-                    and self.global_step % self.config.eval_every == 0
-                ):
-                    metrics = self.evaluate()
-                    self.logger.info(
-                        "eval step=%d loss=%.4f ppl=%.2f",
-                        self.global_step,
-                        metrics["loss"],
-                        metrics["perplexity"],
-                    )
-                if self.config.save_every > 0 and self.global_step % self.config.save_every == 0:
-                    self._save_checkpoint()
-                if self.global_step >= max_steps:
-                    break
-            if self.global_step >= max_steps:
-                break
 
         self._save_checkpoint(suffix="final")
 
@@ -128,7 +133,8 @@ class Trainer:
         autocast_dtype = None
         if self.use_amp:
             autocast_dtype = torch.float16 if self.config.mixed_precision == "fp16" else torch.bfloat16
-        with autocast(device_type=self.device.type, dtype=autocast_dtype, enabled=self.use_amp):
+        # Use CUDA AMP autocast without device_type argument for compatibility across torch versions.
+        with autocast(dtype=autocast_dtype, enabled=self.use_amp):
             outputs = self.model(
                 input_ids=batch["input_ids"],
                 attention_mask=batch.get("attention_mask"),

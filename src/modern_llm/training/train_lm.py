@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import argparse
 from pathlib import Path
+from typing import Optional
 
 import torch
+from torch import Tensor
 from torch.utils.data import DataLoader
 from transformers import AutoTokenizer
 
@@ -13,6 +15,86 @@ from modern_llm.config import ModernLLMConfig, TrainingConfig
 from modern_llm.data import LanguageModelingDatasetConfig, load_causal_lm_dataset
 from modern_llm.models import ModernDecoderLM
 from modern_llm.training.trainer_base import Trainer
+
+
+def _sample_next_token(
+    logits: Tensor,
+    temperature: float = 1.0,
+    top_k: Optional[int] = None,
+) -> Tensor:
+    """Sample the next token id from logits with optional temperature and top-k truncation.
+
+    Pre:
+        - logits: shape (vocab_size,) on a single device.
+        - temperature > 0.
+    Post:
+        - returns a scalar tensor containing the sampled token id.
+    """
+    if temperature <= 0:
+        raise ValueError(f"temperature must be positive, received {temperature}")
+
+    logits = logits / temperature
+    if top_k is not None and top_k > 0 and top_k < logits.size(-1):
+        values, indices = torch.topk(logits, top_k)
+        min_topk = values[..., -1]
+        logits = torch.where(logits < min_topk, torch.full_like(logits, float("-inf")), logits)
+
+    probs = torch.softmax(logits, dim=-1)
+    return torch.multinomial(probs, num_samples=1)
+
+
+def generate_text(
+    model: ModernDecoderLM,
+    tokenizer,
+    prompt: str,
+    max_new_tokens: int,
+    temperature: float = 1.0,
+    top_k: Optional[int] = 50,
+) -> str:
+    """Generate text from a trained `ModernDecoderLM` given a prompt.
+
+    Pre:
+        - `max_new_tokens` > 0.
+        - `prompt` is a non-empty string whose tokenized length is < model.config.max_seq_len.
+    Post:
+        - returns the decoded prompt + continuation string.
+    """
+    if max_new_tokens <= 0:
+        raise ValueError(f"max_new_tokens must be positive, received {max_new_tokens}")
+    if not prompt:
+        raise ValueError("prompt must be a non-empty string")
+
+    model.eval()
+    device = next(model.parameters()).device
+
+    encoded = tokenizer.encode(prompt, return_tensors="pt")
+    if encoded.dim() != 2 or encoded.size(0) != 1:
+        raise ValueError("tokenizer.encode must return tensors of shape (1, seq_len)")
+    input_ids = encoded.to(device)
+
+    max_seq_len = model.config.max_seq_len
+    if input_ids.size(1) >= max_seq_len:
+        raise ValueError(
+            f"Prompt length {input_ids.size(1)} exceeds or equals model max_seq_len {max_seq_len}"
+        )
+
+    available_tokens = max_seq_len - input_ids.size(1)
+    steps = min(max_new_tokens, available_tokens)
+
+    attention_mask = torch.ones_like(input_ids, device=device)
+
+    with torch.no_grad():
+        for _ in range(steps):
+            outputs = model(input_ids=input_ids, attention_mask=attention_mask)
+            logits = outputs["logits"]
+            if logits is None:
+                raise ValueError("Model did not return logits during generation.")
+            next_token_logits = logits[:, -1, :].squeeze(0)
+            next_token = _sample_next_token(next_token_logits, temperature=temperature, top_k=top_k)
+            input_ids = torch.cat([input_ids, next_token.unsqueeze(0)], dim=1)
+            attention_mask = torch.ones_like(input_ids, device=device)
+
+    return tokenizer.decode(input_ids[0], skip_special_tokens=True)
 
 
 def main() -> None:
@@ -42,6 +124,30 @@ def main() -> None:
     parser.add_argument("--mixed_precision", type=str, default="bf16", choices=["bf16", "fp16", "fp32"])
     parser.add_argument("--output_dir", type=str, default="experiments/runs")
     parser.add_argument("--num_proc", type=int, default=1)
+    parser.add_argument(
+        "--gen_prompt",
+        type=str,
+        default="The meaning of life is",
+        help="Prompt used for post-training text generation.",
+    )
+    parser.add_argument(
+        "--gen_max_new_tokens",
+        type=int,
+        default=64,
+        help="Number of new tokens to sample after training (set to 0 to disable).",
+    )
+    parser.add_argument(
+        "--gen_temperature",
+        type=float,
+        default=1.0,
+        help="Sampling temperature for post-training generation.",
+    )
+    parser.add_argument(
+        "--gen_top_k",
+        type=int,
+        default=50,
+        help="Top-k truncation for sampling (<=0 disables top-k).",
+    )
     args = parser.parse_args()
 
     if args.batch_size % args.micro_batch_size != 0:
@@ -138,3 +244,19 @@ def main() -> None:
         lr_scheduler=scheduler,
     )
     trainer.train()
+
+    if args.gen_max_new_tokens > 0:
+        top_k = args.gen_top_k if args.gen_top_k > 0 else None
+        sample = generate_text(
+            model=model,
+            tokenizer=tokenizer,
+            prompt=args.gen_prompt,
+            max_new_tokens=args.gen_max_new_tokens,
+            temperature=args.gen_temperature,
+            top_k=top_k,
+        )
+        separator = "=" * 80
+        print(separator)
+        print("Post-training sample generation:")
+        print(sample)
+        print(separator)

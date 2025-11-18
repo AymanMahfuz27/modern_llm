@@ -19,9 +19,9 @@ class TaskDatasetConfig:
     """Describe supervised datasets (classification or seq2seq)."""
 
     dataset_name: str
+    text_fields: Sequence[str]
     dataset_config_name: Optional[str] = None
     split: str = "train"
-    text_fields: Sequence[str]
     label_field: Optional[str] = "label"
     task_type: str = "classification"
     max_source_length: int = 512
