@@ -8,7 +8,13 @@ from typing import Sequence
 
 @dataclass(slots=True)
 class LoraConfig:
-    """LoRA hyperparameters mirroring Hu et al. (2021, Eq. 5)."""
+    """LoRA hyperparameters mirroring Hu et al. (2021, Eq. 5).
+
+    The `task_type` field should match `peft.TaskType` enum names, e.g.:
+    - \"CAUSAL_LM\" for decoder-only LMs.
+    - \"SEQ_CLS\" for sequence classification.
+    """
+
     r: int = 8
     alpha: int = 16
     dropout: float = 0.05
@@ -25,15 +31,26 @@ class LoraConfig:
             raise ValueError("LoRA dropout must be in [0, 1).")
         if not self.target_modules:
             raise ValueError("At least one target module name must be provided.")
+        if not self.task_type:
+            raise ValueError("task_type must be a non-empty string.")
 
 
 def prepare_lora_model(model, config: LoraConfig):
-    """Inject low-rank adapters as described by Hu et al. (2021)."""
+    """Inject low-rank adapters as described by Hu et al. (2021).
+
+    Pre:
+        - `config.task_type` matches a member of `peft.TaskType`, e.g. \"CAUSAL_LM\" or \"SEQ_CLS\".
+    """
 
     try:
-        from peft import LoraConfig as PeftLoraConfig, get_peft_model
+        from peft import LoraConfig as PeftLoraConfig, TaskType, get_peft_model
     except ImportError as exc:
         raise ImportError("Install `peft` to use LoRA utilities: pip install peft") from exc
+
+    try:
+        task_type_enum = getattr(TaskType, config.task_type)
+    except AttributeError as exc:
+        raise ValueError(f"Invalid LoRA task_type '{config.task_type}' for peft.TaskType") from exc
 
     peft_config = PeftLoraConfig(
         r=config.r,
@@ -41,7 +58,7 @@ def prepare_lora_model(model, config: LoraConfig):
         lora_dropout=config.dropout,
         target_modules=list(config.target_modules),
         bias=config.bias,
-        task_type=config.task_type,
+        task_type=task_type_enum,
     )
     return get_peft_model(model, peft_config)
 
