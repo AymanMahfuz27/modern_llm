@@ -20,7 +20,7 @@ def save_checkpoint(
         - path points to desired checkpoint file location.
         - model_state contains tensors on CPU or GPU-resident (torch.save handles both).
     Post:
-        - file written to disk with model, optimizer, and metadata.
+        - file written to disk with model_state, optimizer, and metadata.
     Complexity:
         - O(total_parameter_count) due to serialization.
     """
@@ -28,9 +28,12 @@ def save_checkpoint(
     if not isinstance(path, Path):
         path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    payload = {"model": model_state, "metadata": metadata}
+    payload = {"model_state": model_state, "metadata": metadata}
     if optimizer_state is not None:
         payload["optimizer"] = optimizer_state
+    for k, v in metadata.items():
+        if k not in payload:
+            payload[k] = v
     torch.save(payload, path)
 
 

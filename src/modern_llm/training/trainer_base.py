@@ -168,11 +168,17 @@ class Trainer:
     def _save_checkpoint(self, suffix: Optional[str] = None) -> None:
         tag = suffix or f"step{self.global_step}"
         path = self.config.output_dir / f"{self.config.run_name}_{tag}.pt"
+        
+        config_dict = None
+        if hasattr(self.model, "config") and hasattr(self.model.config, "__dict__"):
+            config_dict = {k: v for k, v in self.model.config.__dict__.items() if not k.startswith("_")}
+        
         save_checkpoint(
             path,
             model_state=self.model.state_dict(),
             optimizer_state=self.optimizer.state_dict(),
             step=self.global_step,
             run_name=self.config.run_name,
+            config=config_dict,
         )
 

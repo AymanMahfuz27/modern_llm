@@ -26,4 +26,25 @@
   - Run a longer GPT-2 LoRA finetune to reach competitive SST-2 accuracy (to be quantified later via `evaluation.metrics`).
   - Design and implement a scratch `ModernDecoderLM` adaptation to sentiment (e.g., generative \"Review ... Sentiment:\" prompts) for direct comparison against GPT-2 LoRA.
 
+### 2025-11-21 — Phase 1 & 2 implementation complete
+
+- **Phase 1 additions**:
+  - Created `scripts/evaluate_lm_checkpoints.py` to compute validation loss/perplexity for all saved checkpoints and write CSV tables.
+  - Created `scripts/generate_from_checkpoints.py` to sample text from checkpoints with fixed prompts for qualitative comparison.
+  - Designed `configs/lm_max_rtx3060.json` for a max-size model (768-dim, 12-layer, 12-head, 1024 context) pushing RTX 3060 limits with gradient accumulation and BF16.
+  - Created `scripts/train_lm_from_config.py` to train from JSON config files, enabling one-button max-model training.
+  - Implemented `scripts/experiment_attention_sinks.py` to train two small models (with/without sinks) and compare generation stability at 3x trained context.
+  - Added `notebooks/visualize_lm_results.py` to plot loss/perplexity curves from checkpoint metrics.
+
+- **Phase 2 additions**:
+  - Completed `hf/finetune_t5_samsum.py` for T5/FLAN-T5 LoRA finetuning on SAMSum summarization.
+  - Completed `hf/finetune_math_gsm8k.py` for GPT-2/TinyLlama LoRA finetuning on GSM8K math reasoning.
+  - Completed `hf/prompting_baselines.py` to run zero-/few-shot prompting on SST-2, SAMSum, and GSM8K.
+  - Extended `evaluation/metrics.py` to support ROUGE metrics for summarization and F1 for classification.
+  - Created evaluation scripts: `evaluate_hf_sst2.py`, `evaluate_hf_samsum.py`, `evaluate_hf_gsm8k.py` with accuracy/ROUGE/EM computation and error logging.
+  - Created orchestration scripts: `run_phase1_phase2.sh`, `run_phase1_only.sh`, `run_phase2_only.sh`, `run_all_evaluations.sh`.
+
+- **Status**: All Phase 1 and Phase 2 baseline experiments are now runnable end-to-end. Ready to execute training runs and collect metrics for the report.
+
+- **Next steps**: Execute the training runs, then move to Phase 3 (SFT → DPO → Verifier alignment pipeline).
 
