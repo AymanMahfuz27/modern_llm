@@ -5,12 +5,11 @@
 #SBATCH -p gpu-a100
 #SBATCH -N 1
 #SBATCH -n 1
-#SBATCH -c 16
-#SBATCH --gpus-per-node=1
 #SBATCH -t 24:00:00
 #SBATCH -A YOUR_ALLOCATION
 
-# Modern LLM: Pretraining only SLURM job for TACC
+# Modern LLM: Pretraining only SLURM job for TACC Lonestar6
+# Reference: https://docs.tacc.utexas.edu/hpc/lonestar6/
 #
 # Usage:
 #   sbatch submit_pretrain_only.sh [config]
@@ -18,15 +17,20 @@
 set -euo pipefail
 
 CONFIG="${1:-tacc}"
-PROJECT_DIR="${SLURM_SUBMIT_DIR:-$(pwd)}"
-SCRATCH_DIR="${SCRATCH:-/scratch/${USER}}/modern_llm"
+
+# Get paths - script is in scripts/tacc/, project root is 2 levels up
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_DIR="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+WORK_DIR="${WORK}/modern_llm"
 VENV_PATH="${PROJECT_DIR}/.venv"
 
 echo "Modern LLM Pretraining"
 echo "Config: ${CONFIG}"
+echo "Project dir: ${PROJECT_DIR}"
+echo "Work dir: ${WORK_DIR}"
 
-mkdir -p "${SCRATCH_DIR}/checkpoints"
-mkdir -p logs
+mkdir -p "${WORK_DIR}/checkpoints"
+mkdir -p "${PROJECT_DIR}/logs"
 
 module purge
 module load gcc/11.2.0
@@ -47,12 +51,9 @@ export TOKENIZERS_PARALLELISM=false
 
 cd "${PROJECT_DIR}"
 
-torchrun --standalone --nproc_per_node=1 \
-    scripts/pretrain.py \
+python "${PROJECT_DIR}/scripts/pretrain.py" \
     --config "${CONFIG}" \
-    --checkpoint-dir "${SCRATCH_DIR}/checkpoints"
+    --checkpoint-dir "${WORK_DIR}/checkpoints"
 
 echo "Pretraining complete!"
-echo "Checkpoint: ${SCRATCH_DIR}/checkpoints"
-
-
+echo "Checkpoint: ${WORK_DIR}/checkpoints"
