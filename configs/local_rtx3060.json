@@ -1,0 +1,54 @@
+{
+  "run_name": "modern-llm-local",
+  "vocab_size": 50257,
+  "d_model": 768,
+  "n_layers": 12,
+  "n_heads": 12,
+  "ffn_hidden_size": 3072,
+  "max_seq_len": 1024,
+  "dropout": 0.1,
+  "use_rope": true,
+  "use_attention_sinks": true,
+  "num_attention_sinks": 4,
+  "use_swiglu": true,
+  "tie_embeddings": true,
+  "use_gqa": false,
+  "use_moe": false,
+
+  "hardware_preset": "local",
+  "data_preset": "medium",
+
+  "pretrain_max_steps": 20000,
+  "pretrain_lr": 3e-4,
+  "pretrain_batch_size": 64,
+  "pretrain_micro_batch_size": 2,
+  "pretrain_warmup_steps": 500,
+
+  "sft_max_steps": 5000,
+  "sft_lr": 1e-5,
+  "sft_batch_size": 32,
+  "sft_micro_batch_size": 2,
+  "sft_dataset": "tatsu-lab/alpaca",
+
+  "dpo_max_steps": 2000,
+  "dpo_lr": 5e-6,
+  "dpo_batch_size": 16,
+  "dpo_micro_batch_size": 1,
+  "dpo_beta": 0.1,
+  "dpo_dataset": "Anthropic/hh-rlhf",
+
+  "verifier_max_steps": 3000,
+  "verifier_lr": 1e-4,
+  "verifier_batch_size": 32,
+  "verifier_micro_batch_size": 4,
+
+  "output_dir": "experiments/runs",
+  "tokenizer_name": "gpt2",
+  "seed": 42,
+  "mixed_precision": "bf16",
+  "eval_every": 500,
+  "save_every": 2000,
+  "log_every": 100
+}
+
+

@@ -97,6 +97,105 @@ def generate_text(
     return tokenizer.decode(input_ids[0], skip_special_tokens=True)
 
 
+def run_training(
+    model_config: ModernLLMConfig,
+    train_config: TrainingConfig,
+    dataset_name: str = "wikitext",
+    dataset_config_name: str = "wikitext-2-raw-v1",
+    tokenizer_name: str = "gpt2",
+) -> Path:
+    """Run pretraining and return path to final checkpoint.
+
+    Pre: model_config and train_config are valid.
+    Post: Returns path to final checkpoint file.
+    """
+    tokenizer = AutoTokenizer.from_pretrained(tokenizer_name)
+    if tokenizer.pad_token is None:
+        tokenizer.pad_token = tokenizer.eos_token
+    tokenizer.model_max_length = model_config.max_seq_len
+
+    # Update vocab size from tokenizer
+    model_config = ModernLLMConfig(
+        vocab_size=tokenizer.vocab_size,
+        d_model=model_config.d_model,
+        n_layers=model_config.n_layers,
+        n_heads=model_config.n_heads,
+        ffn_hidden_size=model_config.ffn_hidden_size,
+        max_seq_len=model_config.max_seq_len,
+        dropout=model_config.dropout,
+        use_rope=model_config.use_rope,
+        use_attention_sinks=model_config.use_attention_sinks,
+        num_attention_sinks=model_config.num_attention_sinks,
+        use_swiglu=model_config.use_swiglu,
+        tie_embeddings=model_config.tie_embeddings,
+        use_gqa=model_config.use_gqa,
+        gqa_groups=model_config.gqa_groups,
+        use_moe=model_config.use_moe,
+        moe_config=model_config.moe_config,
+    )
+
+    train_dataset = load_causal_lm_dataset(
+        LanguageModelingDatasetConfig(
+            dataset_name=dataset_name,
+            dataset_config_name=dataset_config_name,
+            split="train",
+            max_length=model_config.max_seq_len,
+        ),
+        tokenizer,
+    )
+    eval_dataset = load_causal_lm_dataset(
+        LanguageModelingDatasetConfig(
+            dataset_name=dataset_name,
+            dataset_config_name=dataset_config_name,
+            split="validation",
+            max_length=model_config.max_seq_len,
+        ),
+        tokenizer,
+    )
+
+    train_loader = DataLoader(
+        train_dataset,
+        batch_size=train_config.micro_batch_size,
+        shuffle=True,
+        drop_last=True,
+    )
+    eval_loader = DataLoader(
+        eval_dataset,
+        batch_size=train_config.micro_batch_size,
+        shuffle=False,
+    )
+
+    model = ModernDecoderLM(model_config)
+    print(f"Model: {sum(p.numel() for p in model.parameters()) / 1e6:.1f}M parameters")
+
+    optimizer = torch.optim.AdamW(
+        model.parameters(),
+        lr=train_config.learning_rate,
+        weight_decay=train_config.weight_decay,
+    )
+
+    scheduler = None
+    if train_config.warmup_steps > 0:
+        def lr_lambda(step: int) -> float:
+            if step < train_config.warmup_steps:
+                return float(step + 1) / float(train_config.warmup_steps)
+            return 1.0
+        scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=lr_lambda)
+
+    trainer = Trainer(
+        model=model,
+        optimizer=optimizer,
+        train_dataloader=train_loader,
+        eval_dataloader=eval_loader,
+        config=train_config,
+        lr_scheduler=scheduler,
+    )
+    trainer.train()
+
+    final_checkpoint = train_config.output_dir / f"{train_config.run_name}_final.pt"
+    return final_checkpoint
+
+
 def main() -> None:
     """Train the from-scratch decoder LM on WikiText-2 or TinyStories."""
 

@@ -1,0 +1,83 @@
+#!/bin/bash
+#SBATCH -J modern-llm-align
+#SBATCH -o logs/%x_%j.out
+#SBATCH -e logs/%x_%j.err
+#SBATCH -p gpu-a100
+#SBATCH -N 1
+#SBATCH -n 1
+#SBATCH -c 16
+#SBATCH --gpus-per-node=1
+#SBATCH -t 12:00:00
+#SBATCH -A YOUR_ALLOCATION
+
+# Modern LLM: Alignment pipeline (SFT -> DPO -> Verifier) SLURM job
+# Requires pretrained checkpoint from submit_pretrain_only.sh
+#
+# Usage:
+#   sbatch submit_alignment.sh [config] [pretrain_checkpoint]
+
+set -euo pipefail
+
+CONFIG="${1:-tacc}"
+PRETRAIN_CKPT="${2:-}"
+PROJECT_DIR="${SLURM_SUBMIT_DIR:-$(pwd)}"
+SCRATCH_DIR="${SCRATCH:-/scratch/${USER}}/modern_llm"
+VENV_PATH="${PROJECT_DIR}/.venv"
+
+if [ -z "${PRETRAIN_CKPT}" ]; then
+    # Auto-detect latest pretrain checkpoint
+    PRETRAIN_CKPT=$(ls -t "${SCRATCH_DIR}/checkpoints"/*pretrain*final*.pt 2>/dev/null | head -1)
+    if [ -z "${PRETRAIN_CKPT}" ]; then
+        echo "ERROR: No pretrain checkpoint found. Run submit_pretrain_only.sh first."
+        exit 1
+    fi
+fi
+
+echo "Modern LLM Alignment Pipeline"
+echo "Config: ${CONFIG}"
+echo "Pretrain checkpoint: ${PRETRAIN_CKPT}"
+
+mkdir -p "${SCRATCH_DIR}/checkpoints"
+mkdir -p logs
+
+module purge
+module load gcc/11.2.0
+module load cuda/12.0
+module load python3/3.11.1
+
+source "${VENV_PATH}/bin/activate"
+
+export PYTHONPATH="${PROJECT_DIR}/src:${PYTHONPATH:-}"
+export CUDA_VISIBLE_DEVICES=0
+export TOKENIZERS_PARALLELISM=false
+
+cd "${PROJECT_DIR}"
+
+# Run SFT
+echo "Stage 1: SFT..."
+python scripts/sft.py \
+    --config "${CONFIG}" \
+    --pretrain-checkpoint "${PRETRAIN_CKPT}" \
+    --checkpoint-dir "${SCRATCH_DIR}/checkpoints"
+
+SFT_CKPT=$(ls -t "${SCRATCH_DIR}/checkpoints"/*sft*final*.pt | head -1)
+
+# Run DPO
+echo "Stage 2: DPO..."
+python scripts/dpo.py \
+    --config "${CONFIG}" \
+    --sft-checkpoint "${SFT_CKPT}" \
+    --checkpoint-dir "${SCRATCH_DIR}/checkpoints"
+
+DPO_CKPT=$(ls -t "${SCRATCH_DIR}/checkpoints"/*dpo*final*.pt | head -1)
+
+# Train Verifier
+echo "Stage 3: Verifier..."
+python scripts/train_verifier.py \
+    --config "${CONFIG}" \
+    --checkpoint-dir "${SCRATCH_DIR}/checkpoints"
+
+echo "Alignment complete!"
+echo "Final DPO checkpoint: ${DPO_CKPT}"
+
+
