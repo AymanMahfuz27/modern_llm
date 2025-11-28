@@ -9,7 +9,8 @@ from typing import Dict, Iterable, Optional
 
 import torch
 from torch import nn, Tensor
-from torch.cuda.amp import GradScaler, autocast
+from torch.amp import autocast
+from torch.cuda.amp import GradScaler
 from torch.nn.utils import clip_grad_norm_
 from torch.optim import Optimizer
 from torch.optim.lr_scheduler import _LRScheduler
@@ -69,10 +70,12 @@ class Trainer:
                 for batch in self.train_dataloader:
                     prev_step = self.global_step
                     loss = self._training_step(batch, accumulation_steps)
-                    if self.global_step > prev_step:
-                        pbar.update(self.global_step - prev_step)
-                    if self.global_step >= max_steps:
-                        break
+                    step_completed = self.global_step > prev_step
+                    
+                    if step_completed:
+                        pbar.update(1)
+                        
+                        # Only log/eval/save when a full step completes
                     if self.config.log_every > 0 and self.global_step % self.config.log_every == 0:
                         self.logger.info(
                             "step=%d loss=%.4f lr=%.3e",
@@ -94,6 +97,7 @@ class Trainer:
                         )
                     if self.config.save_every > 0 and self.global_step % self.config.save_every == 0:
                         self._save_checkpoint()
+                    
                     if self.global_step >= max_steps:
                         break
                 if self.global_step >= max_steps:
@@ -133,8 +137,7 @@ class Trainer:
         autocast_dtype = None
         if self.use_amp:
             autocast_dtype = torch.float16 if self.config.mixed_precision == "fp16" else torch.bfloat16
-        # Use CUDA AMP autocast without device_type argument for compatibility across torch versions.
-        with autocast(dtype=autocast_dtype, enabled=self.use_amp):
+        with autocast(device_type="cuda", dtype=autocast_dtype, enabled=self.use_amp):
             outputs = self.model(
                 input_ids=batch["input_ids"],
                 attention_mask=batch.get("attention_mask"),

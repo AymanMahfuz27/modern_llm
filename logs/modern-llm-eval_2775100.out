@@ -1,0 +1,69 @@
+Running evaluation and comparison...
+Using device: cuda
+
+Loading WikiText-2 validation set...
+Loaded 2461 validation samples
+
+============================================================
+Loading GPT-2 baseline...
+  Parameters: 124,439,808 (124.4M)
+  WikiText-2 Perplexity: 40.64
+
+============================================================
+Evaluating PRETRAIN model...
+============================================================
+  Parameters: 252,925,952 (252.9M)
+  WikiText-2 Perplexity: 27.03
+
+============================================================
+Evaluating SFT model...
+============================================================
+  Parameters: 252,925,952 (252.9M)
+  WikiText-2 Perplexity: 34.14
+
+============================================================
+Evaluating DPO model...
+============================================================
+  Parameters: 252,925,952 (252.9M)
+  WikiText-2 Perplexity: 34.32
+
+============================================================
+GENERATION COMPARISON
+============================================================
+
+PROMPT: The history of artificial intelligence began
+----------------------------------------
+MY MODEL (DPO): The history of artificial intelligence began to spread. It was a powerful and powerful machine that could do amazing things. It could make people think of new ideas and ideas, and it could even help p...
+GPT-2:            The history of artificial intelligence began in the late 1960s, when the computer was first developed. The first computer was designed by a group of researchers at the University of California, Berkel...
+
+PROMPT: In a groundbreaking scientific discovery,
+----------------------------------------
+MY MODEL (DPO): In a groundbreaking scientific discovery, the scientists discovered that the most important part of the universe is the universe. This is because the universe is composed of thousands of stars, which ...
+GPT-2:            In a groundbreaking scientific discovery, the researchers found that the brain's ability to process information is not limited to the brain's ability to process information.
+
+"The brain is a very comp...
+
+PROMPT: The economic implications of
+----------------------------------------
+MY MODEL (DPO): The economic implications of the day were high. The sun was shining brightly, and the birds were singing. The air was crisp and the air was crisp. The air was crisp and the air was crisp. The air was ...
+GPT-2:            The economic implications of the new law are unclear.
+
+"The law is not going to be a big deal," said David B. Smith, a professor of economics at the University of California, Berkeley. "It's going to ...
+
+============================================================
+COMPARISON SUMMARY
+============================================================
+
+┌─────────────────────┬──────────────────┬──────────────────┐
+│ Model               │ Parameters       │ WikiText-2 PPL   │
+├─────────────────────┼──────────────────┼──────────────────┤
+│ GPT-2 (baseline)    │          124.4M │            40.64 │
+│ MY pretrain      │          252.9M │            27.03 │
+│ MY sft           │          252.9M │            34.14 │
+│ MY dpo           │          252.9M │            34.32 │
+└─────────────────────┴──────────────────┴──────────────────┘
+
+Results saved to /home1/09999/aymanmahfuz/modern_llm/experiments/results/tacc-full-v2_eval.json
+Comparison log saved to /home1/09999/aymanmahfuz/modern_llm/experiments/comparison_log_v2.txt
+Report saved to /home1/09999/aymanmahfuz/modern_llm/report/tacc-full-v2_report.md
+Done!

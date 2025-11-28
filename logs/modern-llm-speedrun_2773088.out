@@ -1,8 +1,8 @@
 ========================================
 Modern LLM Speedrun Pipeline
 ========================================
-Job ID: 2771310
-Node: c318-004.ls6.tacc.utexas.edu
+Job ID: 2773088
+Node: c318-002.ls6.tacc.utexas.edu
 Config: tacc
 Project dir: /home1/09999/aymanmahfuz/modern_llm
 Work dir: /work/09999/aymanmahfuz/ls6/modern_llm
@@ -120,41 +120,10 @@ Hardware:     auto
 Data scale:   large
 ============================================================
 
+Loading 2 datasets: ['wikitext-103-raw-v1', 'roneneldan/TinyStories']
+Loading dataset: wikitext-103-raw-v1
+  Loaded 1801350 samples from wikitext-103-raw-v1
+Loading dataset: roneneldan/TinyStories
+  Loaded 2119719 samples from roneneldan/TinyStories
+Combined dataset: 3921069 total samples
 Model: 252.9M parameters
-Loading pretrained model from /work/09999/aymanmahfuz/ls6/modern_llm/checkpoints/tacc-full-pretrain/tacc-full-pretrain_final.pt
-Model: 252.9M parameters
-Loading instruction dataset: tatsu-lab/alpaca
-Training examples: 52002
-Starting SFT for 3000 steps
-SFT complete. Final checkpoint: /work/09999/aymanmahfuz/ls6/modern_llm/checkpoints/tacc-full-sft/tacc-full-sft_final.pt
-Loading SFT model from /work/09999/aymanmahfuz/ls6/modern_llm/checkpoints/tacc-full-sft/tacc-full-sft_final.pt
-Model: 252.9M parameters
-Loading preference dataset: Anthropic/hh-rlhf
-Preference pairs: 160800
-Starting DPO for 2000 steps (beta=0.1)
-DPO complete. Final checkpoint: /work/09999/aymanmahfuz/ls6/modern_llm/checkpoints/tacc-full-dpo/tacc-full-dpo_final.pt
-Verifier: 38.9M parameters
-Loading verifier dataset: gsm8k
-Training examples: 14946
-Starting verifier training for 2000 steps
-Verifier training complete. Final checkpoint: /work/09999/aymanmahfuz/ls6/modern_llm/checkpoints/tacc-full-verifier/tacc-full-verifier_final.pt
-
-[Evaluation] Running evaluation suite...
-Evaluating base...
-Evaluating sft...
-Evaluating dpo...
-Evaluation results saved to: experiments/results/tacc-full_eval.json
-
-[Report] Generating report...
-Report saved to: report/tacc-full_report.md
-Report saved to: report/tacc-full_report.md
-
-============================================================
-Speedrun complete!
-============================================================
-
-========================================
-Pipeline complete!
-========================================
-Checkpoints saved to: /work/09999/aymanmahfuz/ls6/modern_llm/checkpoints
-Logs saved to: /home1/09999/aymanmahfuz/modern_llm/logs

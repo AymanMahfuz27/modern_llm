@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 from typing import Sequence
 
 
-@dataclass(slots=True)
+@dataclass
 class LoraConfig:
     """LoRA hyperparameters mirroring Hu et al. (2021, Eq. 5).
 

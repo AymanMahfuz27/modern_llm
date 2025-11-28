@@ -6,7 +6,7 @@
 #SBATCH -N 1
 #SBATCH -n 1
 #SBATCH -t 12:00:00
-#SBATCH -A YOUR_ALLOCATION
+#SBATCH -A ASC25078
 
 # Modern LLM: Alignment pipeline (SFT -> DPO -> Verifier) SLURM job
 # Reference: https://docs.tacc.utexas.edu/hpc/lonestar6/
@@ -21,9 +21,33 @@ set -euo pipefail
 CONFIG="${1:-tacc}"
 PRETRAIN_CKPT="${2:-}"
 
-# Get paths - script is in scripts/tacc/, project root is 2 levels up
+# Get project directory robustly
+# SLURM copies scripts to /var/spool, so BASH_SOURCE[0] won't work.
+find_project_root() {
+    local search_dir="${1:-$(pwd)}"
+    while [ "$search_dir" != "/" ]; do
+        if [ -f "$search_dir/requirements.txt" ] && [ -d "$search_dir/src/modern_llm" ]; then
+            echo "$search_dir"
+            return 0
+        fi
+        search_dir="$(dirname "$search_dir")"
+    done
+    return 1
+}
+
+if [ -n "${SLURM_SUBMIT_DIR:-}" ]; then
+    PROJECT_DIR="$(find_project_root "${SLURM_SUBMIT_DIR}")" || {
+        echo "ERROR: Could not find project root from SLURM_SUBMIT_DIR=${SLURM_SUBMIT_DIR}"
+        exit 1
+    }
+else
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_DIR="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+    PROJECT_DIR="$(find_project_root "${SCRIPT_DIR}")" || {
+        echo "ERROR: Could not find project root"
+        exit 1
+    }
+fi
+
 WORK_DIR="${WORK}/modern_llm"
 VENV_PATH="${PROJECT_DIR}/.venv"
 
@@ -45,10 +69,11 @@ echo "Work dir: ${WORK_DIR}"
 mkdir -p "${WORK_DIR}/checkpoints"
 mkdir -p "${PROJECT_DIR}/logs"
 
+# Load TACC modules for Lonestar6
 module purge
 module load gcc/11.2.0
 module load cuda/12.0
-module load python3/3.11.1
+module load python3
 
 source "${VENV_PATH}/bin/activate"
 

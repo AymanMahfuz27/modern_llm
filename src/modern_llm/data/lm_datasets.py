@@ -1,4 +1,4 @@
-"""Causal language modeling data prep (e.g., WikiText-2, TinyStories).
+"""Causal language modeling data prep (e.g., WikiText-2, TinyStories, OpenWebText).
 
 WikiText-2 (Merity et al., 2016) and TinyStories (Gao et al., 2023) are the
 primary corpora; this module standardizes how we fetch and tokenize them so the
@@ -8,12 +8,22 @@ training scripts can assume reproducible, research-grade preprocessing.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional
+from typing import List, Optional
 
 from transformers import PreTrainedTokenizerBase
 
 
-@dataclass(slots=True)
+# Dataset name -> (hf_name, hf_config, text_field) mapping
+DATASET_REGISTRY = {
+    "wikitext-2-raw-v1": ("wikitext", "wikitext-2-raw-v1", "text"),
+    "wikitext-103-raw-v1": ("wikitext", "wikitext-103-raw-v1", "text"),
+    "roneneldan/TinyStories": ("roneneldan/TinyStories", None, "text"),
+    "openwebtext": ("openwebtext", None, "text"),
+    "bookcorpus": ("bookcorpus", None, "text"),
+}
+
+
+@dataclass
 class LanguageModelingDatasetConfig:
     """Configure a Hugging Face dataset for causal LM use."""
 
@@ -106,4 +116,72 @@ def load_causal_lm_dataset(
 
     tokenized.set_format(type="torch", columns=["input_ids", "attention_mask", "labels"])
     return tokenized
+
+
+def load_multi_dataset(
+    dataset_names: List[str],
+    tokenizer: PreTrainedTokenizerBase,
+    split: str = "train",
+    max_length: int = 1024,
+    max_samples_per_dataset: Optional[int] = None,
+):
+    """Load and concatenate multiple datasets for pretraining.
+    
+    Pre: dataset_names are keys in DATASET_REGISTRY or valid HF dataset paths.
+    Post: Returns concatenated tokenized dataset.
+    
+    Args:
+        dataset_names: List of dataset identifiers
+        tokenizer: Tokenizer to use
+        split: Dataset split (train/validation)
+        max_length: Max sequence length
+        max_samples_per_dataset: Cap samples per dataset (for balanced mixing)
+    """
+    from datasets import concatenate_datasets
+    
+    all_datasets = []
+    
+    for name in dataset_names:
+        print(f"Loading dataset: {name}")
+        
+        # Look up in registry or use as-is
+        if name in DATASET_REGISTRY:
+            hf_name, hf_config, text_field = DATASET_REGISTRY[name]
+        else:
+            # Assume it's a direct HF path
+            hf_name = name
+            hf_config = None
+            text_field = "text"
+        
+        try:
+            config = LanguageModelingDatasetConfig(
+                dataset_name=hf_name,
+                dataset_config_name=hf_config,
+                split=split,
+                text_field=text_field,
+                max_length=max_length,
+            )
+            dataset = load_causal_lm_dataset(config, tokenizer)
+            
+            # Cap samples if requested (for balanced mixing)
+            if max_samples_per_dataset and len(dataset) > max_samples_per_dataset:
+                dataset = dataset.select(range(max_samples_per_dataset))
+                print(f"  Capped to {max_samples_per_dataset} samples")
+            
+            print(f"  Loaded {len(dataset)} samples from {name}")
+            all_datasets.append(dataset)
+            
+        except Exception as e:
+            print(f"  WARNING: Failed to load {name}: {e}")
+            continue
+    
+    if not all_datasets:
+        raise ValueError("No datasets were successfully loaded")
+    
+    # Concatenate all datasets
+    combined = concatenate_datasets(all_datasets)
+    combined = combined.shuffle(seed=42)
+    print(f"Combined dataset: {len(combined)} total samples")
+    
+    return combined
 

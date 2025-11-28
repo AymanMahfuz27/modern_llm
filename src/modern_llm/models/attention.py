@@ -16,10 +16,11 @@ from dataclasses import dataclass
 from typing import Optional, Tuple
 
 import torch
+import torch.nn.functional as F
 from torch import Tensor, nn
 
 
-@dataclass(slots=True)
+@dataclass
 class AttentionConfig:
     """Hyperparameters controlling the attention mechanism."""
 
@@ -33,6 +34,7 @@ class AttentionConfig:
     use_gqa: bool = False
     gqa_groups: Optional[int] = None
     dropout: float = 0.0
+    use_flash_attention: bool = True  # Use PyTorch SDPA (includes Flash Attention)
 
     def __post_init__(self) -> None:
         if self.d_model <= 0:
@@ -137,20 +139,43 @@ class MultiHeadAttention(nn.Module):
                 )
                 attention_mask = torch.cat([sink_bias, attention_mask], dim=-1)
 
-        attn_scores = torch.matmul(q, k.transpose(-2, -1)) * self.scale
-        if attention_mask is not None:
-            if attention_mask.shape[-1] != key_length:
-                raise ValueError(
-                    f"attention_mask length {attention_mask.shape[-1]} "
-                    f"does not match K length {key_length}"
-                )
-            attn_scores = attn_scores + attention_mask
+        # Use Flash Attention (SDPA) when enabled and no attention sinks
+        # SDPA is 2-4x faster and more memory efficient
+        use_sdpa = (
+            self.config.use_flash_attention
+            and not self.config.use_attention_sinks
+            and hasattr(F, "scaled_dot_product_attention")
+        )
+        
+        if use_sdpa:
+            # SDPA expects (B, H, S, D) format - already in this format
+            dropout_p = self.config.dropout if self.training else 0.0
+            context = F.scaled_dot_product_attention(
+                q, k, v,
+                attn_mask=None,  # Use is_causal instead for efficiency
+                dropout_p=dropout_p,
+                is_causal=True,
+                scale=self.scale,
+            )
+            # Reshape from (B, H, S, D) to (B, S, d_model)
+            context = context.transpose(1, 2).contiguous().view(batch_size, seq_len, self.config.d_model)
+            return self.out_proj(context)
+        else:
+            # Fallback to manual attention (needed for attention sinks)
+            attn_scores = torch.matmul(q, k.transpose(-2, -1)) * self.scale
+            if attention_mask is not None:
+                if attention_mask.shape[-1] != key_length:
+                    raise ValueError(
+                        f"attention_mask length {attention_mask.shape[-1]} "
+                        f"does not match K length {key_length}"
+                    )
+                attn_scores = attn_scores + attention_mask
 
-        attn_probs = torch.softmax(attn_scores, dim=-1, dtype=torch.float32).to(attn_scores.dtype)
-        attn_probs = self.dropout(attn_probs)
-        context = torch.matmul(attn_probs, v)
-        context = context.transpose(1, 2).contiguous().view(batch_size, seq_len, self.config.d_model)
-        return self.out_proj(context)
+            attn_probs = torch.softmax(attn_scores, dim=-1, dtype=torch.float32).to(attn_scores.dtype)
+            attn_probs = self.dropout(attn_probs)
+            context = torch.matmul(attn_probs, v)
+            context = context.transpose(1, 2).contiguous().view(batch_size, seq_len, self.config.d_model)
+            return self.out_proj(context)
 
     # --- helpers -----------------------------------------------------------------
 

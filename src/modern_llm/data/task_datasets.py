@@ -14,7 +14,7 @@ from typing import Optional, Sequence
 from transformers import PreTrainedTokenizerBase
 
 
-@dataclass(slots=True)
+@dataclass
 class TaskDatasetConfig:
     """Describe supervised datasets (classification or seq2seq)."""
 

@@ -16,7 +16,7 @@ import torch
 MixedPrecisionDtype = Literal["bf16", "fp16", "fp32"]
 
 
-@dataclass(slots=True)
+@dataclass
 class HardwareConfig:
     """Hardware-specific training configuration.
 
@@ -82,7 +82,7 @@ class HardwareConfig:
         return torch.device(self.device)
 
 
-@dataclass(slots=True)
+@dataclass
 class DataConfig:
     """Data loading and corpus configuration.
 

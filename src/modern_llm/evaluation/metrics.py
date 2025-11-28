@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 from typing import Dict, List, Sequence
 
 
-@dataclass(slots=True)
+@dataclass
 class EvaluationResult:
     """Container for metric scores keyed by metric name."""
     task_name: str

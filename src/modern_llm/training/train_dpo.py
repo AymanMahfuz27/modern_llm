@@ -13,7 +13,8 @@ from typing import Optional
 
 import torch
 from torch import nn, Tensor
-from torch.cuda.amp import GradScaler, autocast
+from torch.amp import autocast
+from torch.cuda.amp import GradScaler
 from torch.nn.utils import clip_grad_norm_
 from torch.optim import AdamW
 from torch.optim.lr_scheduler import CosineAnnealingLR
@@ -29,7 +30,7 @@ from modern_llm.utils.checkpointing import load_checkpoint, save_checkpoint
 from modern_llm.utils.logging_utils import create_logger
 
 
-@dataclass(slots=True)
+@dataclass
 class DPOConfig:
     """DPO-specific hyperparameters."""
 
@@ -66,9 +67,17 @@ class PreferenceDataset(Dataset):
 
     def _process_item(self, item: dict, config: PreferenceDatasetConfig) -> Optional[dict]:
         """Tokenize a single preference pair."""
-        prompt = item.get(config.prompt_field, "") if config.prompt_field else ""
-        chosen = item[config.chosen_field]
-        rejected = item[config.rejected_field]
+        # Try to get prompt from config field, or fall back to "prompt" key if it exists
+        if config.prompt_field and config.prompt_field in item:
+            prompt = item[config.prompt_field]
+        elif "prompt" in item:
+            prompt = item["prompt"]
+        else:
+            prompt = ""
+        
+        # Get chosen/rejected (may be processed from original dataset format)
+        chosen = item.get("chosen", item.get(config.chosen_field, ""))
+        rejected = item.get("rejected", item.get(config.rejected_field, ""))
 
         # Handle nested format (some datasets have {"content": ...})
         if isinstance(chosen, list):
@@ -229,7 +238,7 @@ class DPOTrainer:
         batch = self._move_to_device(batch)
 
         autocast_dtype = torch.bfloat16 if self.config.mixed_precision == "bf16" else torch.float16
-        with autocast(dtype=autocast_dtype, enabled=self.use_amp):
+        with autocast(device_type="cuda", dtype=autocast_dtype, enabled=self.use_amp):
             # Forward pass for chosen and rejected
             self.model.eval()  # No dropout for log prob computation
             with torch.no_grad():

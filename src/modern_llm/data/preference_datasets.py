@@ -6,11 +6,12 @@ labels derived from instruction-following corpora.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from typing import Optional
 
 
-@dataclass(slots=True)
+@dataclass
 class PreferenceDatasetConfig:
     """Configuration describing a pairwise preference dataset."""
 
@@ -19,7 +20,7 @@ class PreferenceDatasetConfig:
     split: str = "train"
     chosen_field: str = "chosen"
     rejected_field: str = "rejected"
-    prompt_field: Optional[str] = "prompt"
+    prompt_field: Optional[str] = None  # None for datasets that embed prompt in responses
 
     def __post_init__(self) -> None:
         if not self.dataset_name:
@@ -39,13 +40,59 @@ def _require_datasets():
         ) from exc
 
 
+def _extract_prompt_and_response_hh(text: str) -> tuple[str, str]:
+    """Extract prompt and response from Anthropic HH-RLHF format.
+    
+    The format is:
+        Human: <prompt>
+        
+        Assistant: <response>
+        
+        Human: <follow-up> (optional)
+        ...
+    
+    Returns the full conversation up to the last Assistant turn as prompt,
+    and the last Assistant response as the response.
+    """
+    # Find the last "Assistant:" marker
+    matches = list(re.finditer(r"\n\nAssistant:\s*", text))
+    if not matches:
+        # No assistant marker, treat whole thing as prompt with empty response
+        return text.strip(), ""
+    
+    last_match = matches[-1]
+    prompt = text[:last_match.start()].strip()
+    response = text[last_match.end():].strip()
+    return prompt, response
+
+
+def _process_hh_rlhf(dataset):
+    """Process Anthropic HH-RLHF dataset to extract prompt/chosen/rejected."""
+    
+    def extract_fields(example):
+        chosen_text = example.get("chosen", "")
+        rejected_text = example.get("rejected", "")
+        
+        prompt_from_chosen, chosen_response = _extract_prompt_and_response_hh(chosen_text)
+        prompt_from_rejected, rejected_response = _extract_prompt_and_response_hh(rejected_text)
+        
+        # Use prompt from chosen (they should be the same)
+        return {
+            "prompt": prompt_from_chosen,
+            "chosen": chosen_response,
+            "rejected": rejected_response,
+        }
+    
+    return dataset.map(extract_fields, remove_columns=dataset.column_names)
+
+
 def load_preference_dataset(config: PreferenceDatasetConfig):
     """Return a dataset that yields prompt, chosen, rejected triples.
 
     Pre:
         - dataset exposes the configured fields.
     Post:
-        - returns Hugging Face Dataset ready for DPO batching.
+        - returns Hugging Face Dataset ready for DPO batching with prompt/chosen/rejected.
     Complexity:
         - O(num_examples) to scan column names and instantiate the dataset.
     Invariants:
@@ -59,8 +106,21 @@ def load_preference_dataset(config: PreferenceDatasetConfig):
         split=config.split,
     )
     column_names = dataset.column_names
-    for field in filter(None, [config.prompt_field, config.chosen_field, config.rejected_field]):
+    
+    # Check required fields
+    for field in [config.chosen_field, config.rejected_field]:
         if field not in column_names:
             raise ValueError(f"Field '{field}' missing from dataset columns: {column_names}")
+    
+    # Handle datasets without explicit prompt field (like Anthropic HH-RLHF)
+    if config.prompt_field is None or config.prompt_field not in column_names:
+        # Check if this looks like HH-RLHF format (chosen/rejected contain full conversations)
+        if "Anthropic" in config.dataset_name or "hh-rlhf" in config.dataset_name.lower():
+            return _process_hh_rlhf(dataset)
+        # For other datasets, try to extract or use chosen field as-is
+        if "prompt" not in column_names:
+            # Create empty prompt field
+            dataset = dataset.map(lambda x: {"prompt": ""})
+    
     return dataset
 

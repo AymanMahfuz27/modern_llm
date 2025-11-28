@@ -1,0 +1,42 @@
+{
+  "timestamp": "2025-11-28T17:45:52.859962",
+  "device": "cuda",
+  "gpt2": {
+    "parameters": 124439808,
+    "perplexity": 40.64103317260742
+  },
+  "stages": {
+    "pretrain": {
+      "parameters": 252925952,
+      "perplexity": 27.02976417541504,
+      "checkpoint": "/home1/09999/aymanmahfuz/modern_llm/checkpoints/pretrain_best.pt"
+    },
+    "sft": {
+      "parameters": 252925952,
+      "perplexity": 34.14390563964844,
+      "checkpoint": "/home1/09999/aymanmahfuz/modern_llm/checkpoints/sft_final.pt"
+    },
+    "dpo": {
+      "parameters": 252925952,
+      "perplexity": 34.324275970458984,
+      "checkpoint": "/home1/09999/aymanmahfuz/modern_llm/checkpoints/dpo_final.pt"
+    }
+  },
+  "generations": {
+    "prompts": [
+      "The history of artificial intelligence began",
+      "In a groundbreaking scientific discovery,",
+      "The economic implications of"
+    ],
+    "your_model": [
+      "The history of artificial intelligence began to spread. It was a powerful and powerful machine that could do amazing things. It could make people think of new ideas and ideas, and it could even help people learn from their mistakes. It was a powerful machine that could make people think of new",
+      "In a groundbreaking scientific discovery, the scientists discovered that the most important part of the universe is the universe. This is because the universe is composed of thousands of stars, which are composed of the universe's most massive stars. This is because the universe is composed of thousands of stars,",
+      "The economic implications of the day were high. The sun was shining brightly, and the birds were singing. The air was crisp and the air was crisp. The air was crisp and the air was crisp. The air was crisp and the air was crisp. The air was"
+    ],
+    "gpt2": [
+      "The history of artificial intelligence began in the late 1960s, when the computer was first developed. The first computer was designed by a group of researchers at the University of California, Berkeley. The computer was designed to be able to perform tasks that were difficult to perform in real life.",
+      "In a groundbreaking scientific discovery, the researchers found that the brain's ability to process information is not limited to the brain's ability to process information.\n\n\"The brain is a very complex system, and it's not just a single part of the brain,\" said Dr. David",
+      "The economic implications of the new law are unclear.\n\n\"The law is not going to be a big deal,\" said David B. Smith, a professor of economics at the University of California, Berkeley. \"It's going to be a big deal for the economy"
+    ]
+  }
+}

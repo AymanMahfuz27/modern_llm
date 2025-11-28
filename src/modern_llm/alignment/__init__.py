@@ -1,7 +1,9 @@
 """Alignment utilities: DPO loss and orchestration pipeline."""
 
 from .dpo_loss import dpo_loss
-from .alignment_pipeline import run_alignment_pipeline
 
-__all__ = ["dpo_loss", "run_alignment_pipeline"]
+# Note: AlignmentPipeline and run_alignment_pipeline must be imported directly
+# from modern_llm.alignment.alignment_pipeline to avoid circular imports with train_dpo.py
+
+__all__ = ["dpo_loss"]
 

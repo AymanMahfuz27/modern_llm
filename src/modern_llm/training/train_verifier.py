@@ -14,7 +14,8 @@ from typing import Optional
 
 import torch
 from torch import nn, Tensor
-from torch.cuda.amp import GradScaler, autocast
+from torch.amp import autocast
+from torch.cuda.amp import GradScaler
 from torch.nn.utils import clip_grad_norm_
 from torch.optim import AdamW
 from torch.optim.lr_scheduler import CosineAnnealingLR
@@ -28,7 +29,7 @@ from modern_llm.utils.checkpointing import save_checkpoint
 from modern_llm.utils.logging_utils import create_logger
 
 
-@dataclass(slots=True)
+@dataclass
 class VerifierDatasetConfig:
     """Configuration for verifier training data."""
 
@@ -258,7 +259,7 @@ class VerifierTrainer:
         batch = self._move_to_device(batch)
 
         autocast_dtype = torch.bfloat16 if self.config.mixed_precision == "bf16" else torch.float16
-        with autocast(dtype=autocast_dtype, enabled=self.use_amp):
+        with autocast(device_type="cuda", dtype=autocast_dtype, enabled=self.use_amp):
             outputs = self.model(
                 input_ids=batch["input_ids"],
                 attention_mask=batch["attention_mask"],

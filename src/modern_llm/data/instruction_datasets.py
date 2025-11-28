@@ -14,7 +14,7 @@ from torch.utils.data import Dataset
 from transformers import PreTrainedTokenizerBase
 
 
-@dataclass(slots=True)
+@dataclass
 class InstructionDatasetConfig:
     """Configuration for instruction-tuning datasets."""
 

@@ -2,11 +2,13 @@
 #SBATCH -J modern-llm-speedrun
 #SBATCH -o logs/%x_%j.out
 #SBATCH -e logs/%x_%j.err
-#SBATCH -p gpu-a100
+#SBATCH -p gpu-h100
 #SBATCH -N 1
 #SBATCH -n 1
+#SBATCH --mail-user=aymanmahfuz27@utexas.edu  # Update with your email
+#SBATCH --mail-type=all             # Email notifications for job status
 #SBATCH -t 48:00:00
-#SBATCH -A YOUR_ALLOCATION
+#SBATCH -A ASC25078
 
 # Modern LLM: Full pipeline SLURM job for TACC Lonestar6
 # Reference: https://docs.tacc.utexas.edu/hpc/lonestar6/
@@ -27,10 +29,34 @@ set -euo pipefail
 # Configuration
 CONFIG="${1:-tacc}"
 
-# Get the directory where this script lives (scripts/tacc/)
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# Project root is two levels up from scripts/tacc/
-PROJECT_DIR="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+# Get project directory robustly
+# SLURM copies scripts to /var/spool, so BASH_SOURCE[0] won't work.
+# We find the project root by looking for the marker file (requirements.txt).
+find_project_root() {
+    local search_dir="${1:-$(pwd)}"
+    while [ "$search_dir" != "/" ]; do
+        if [ -f "$search_dir/requirements.txt" ] && [ -d "$search_dir/src/modern_llm" ]; then
+            echo "$search_dir"
+            return 0
+        fi
+        search_dir="$(dirname "$search_dir")"
+    done
+    return 1
+}
+
+if [ -n "${SLURM_SUBMIT_DIR:-}" ]; then
+    PROJECT_DIR="$(find_project_root "${SLURM_SUBMIT_DIR}")" || {
+        echo "ERROR: Could not find project root from SLURM_SUBMIT_DIR=${SLURM_SUBMIT_DIR}"
+        echo "Please run sbatch from within the modern_llm project directory."
+        exit 1
+    }
+else
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    PROJECT_DIR="$(find_project_root "${SCRIPT_DIR}")" || {
+        echo "ERROR: Could not find project root from script dir"
+        exit 1
+    }
+fi
 
 # Use $WORK for persistent storage (not $SCRATCH which gets purged)
 WORK_DIR="${WORK}/modern_llm"
@@ -52,10 +78,12 @@ mkdir -p "${WORK_DIR}/logs"
 mkdir -p "${PROJECT_DIR}/logs"
 
 # Load TACC modules for Lonestar6
+# Reference: https://docs.tacc.utexas.edu/hpc/lonestar6/
 module purge
 module load gcc/11.2.0
 module load cuda/12.0
-module load python3/3.11.1
+# Use default python3 - specific versions may not exist
+module load python3
 
 # Activate virtual environment (create if needed)
 if [ ! -d "${VENV_PATH}" ]; then
@@ -74,6 +102,8 @@ pip install -r "${PROJECT_DIR}/requirements.txt"
 export PYTHONPATH="${PROJECT_DIR}/src:${PYTHONPATH:-}"
 export CUDA_VISIBLE_DEVICES=0
 export TOKENIZERS_PARALLELISM=false
+# Use segmented CUDA allocator to reduce fragmentation for large models
+export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 
 # Symlink work checkpoints to project dir for easier access
 ln -sf "${WORK_DIR}/checkpoints" "${PROJECT_DIR}/experiments/runs/work_checkpoints" 2>/dev/null || true

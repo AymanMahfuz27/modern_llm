@@ -12,7 +12,7 @@ from torch.utils.data import DataLoader
 from transformers import AutoTokenizer
 
 from modern_llm.config import ModernLLMConfig, TrainingConfig
-from modern_llm.data import LanguageModelingDatasetConfig, load_causal_lm_dataset
+from modern_llm.data import LanguageModelingDatasetConfig, load_causal_lm_dataset, load_multi_dataset
 from modern_llm.models import ModernDecoderLM
 from modern_llm.training.trainer_base import Trainer
 
@@ -100,15 +100,24 @@ def generate_text(
 def run_training(
     model_config: ModernLLMConfig,
     train_config: TrainingConfig,
-    dataset_name: str = "wikitext",
-    dataset_config_name: str = "wikitext-2-raw-v1",
+    dataset_names: Optional[list] = None,
     tokenizer_name: str = "gpt2",
 ) -> Path:
     """Run pretraining and return path to final checkpoint.
 
     Pre: model_config and train_config are valid.
     Post: Returns path to final checkpoint file.
+    
+    Args:
+        model_config: Model architecture config
+        train_config: Training hyperparameters
+        dataset_names: List of dataset names to train on. If None, uses WikiText-2.
+        tokenizer_name: Tokenizer to use
     """
+    # Default to WikiText-2 if no datasets specified
+    if dataset_names is None:
+        dataset_names = ["wikitext-2-raw-v1"]
+    
     tokenizer = AutoTokenizer.from_pretrained(tokenizer_name)
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
@@ -134,24 +143,50 @@ def run_training(
         moe_config=model_config.moe_config,
     )
 
-    train_dataset = load_causal_lm_dataset(
-        LanguageModelingDatasetConfig(
-            dataset_name=dataset_name,
-            dataset_config_name=dataset_config_name,
+    # Load training data (single or multiple datasets)
+    from modern_llm.data.lm_datasets import DATASET_REGISTRY
+    
+    if len(dataset_names) == 1 and dataset_names[0] in ["wikitext-2-raw-v1", "wikitext-103-raw-v1"]:
+        # Single wikitext dataset - use original loader for validation split
+        hf_name, hf_config, _ = DATASET_REGISTRY[dataset_names[0]]
+        train_dataset = load_causal_lm_dataset(
+            LanguageModelingDatasetConfig(
+                dataset_name=hf_name,
+                dataset_config_name=hf_config,
+                split="train",
+                max_length=model_config.max_seq_len,
+            ),
+            tokenizer,
+        )
+        eval_dataset = load_causal_lm_dataset(
+            LanguageModelingDatasetConfig(
+                dataset_name=hf_name,
+                dataset_config_name=hf_config,
+                split="validation",
+                max_length=model_config.max_seq_len,
+            ),
+            tokenizer,
+        )
+    else:
+        # Multiple datasets - concatenate them
+        print(f"Loading {len(dataset_names)} datasets: {dataset_names}")
+        train_dataset = load_multi_dataset(
+            dataset_names,
+            tokenizer,
             split="train",
             max_length=model_config.max_seq_len,
-        ),
-        tokenizer,
-    )
-    eval_dataset = load_causal_lm_dataset(
-        LanguageModelingDatasetConfig(
-            dataset_name=dataset_name,
-            dataset_config_name=dataset_config_name,
-            split="validation",
-            max_length=model_config.max_seq_len,
-        ),
-        tokenizer,
-    )
+        )
+        # For eval, just use WikiText-2 validation (standard benchmark)
+        hf_name, hf_config, _ = DATASET_REGISTRY["wikitext-2-raw-v1"]
+        eval_dataset = load_causal_lm_dataset(
+            LanguageModelingDatasetConfig(
+                dataset_name=hf_name,
+                dataset_config_name=hf_config,
+                split="validation",
+                max_length=model_config.max_seq_len,
+            ),
+            tokenizer,
+        )
 
     train_loader = DataLoader(
         train_dataset,

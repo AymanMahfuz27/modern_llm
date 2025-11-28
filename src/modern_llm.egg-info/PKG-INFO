@@ -1,0 +1,14 @@
+Metadata-Version: 2.4
+Name: modern_llm
+Version: 0.1.0
+Summary: Modern LLM training pipeline with alignment
+Requires-Python: >=3.9
+Requires-Dist: torch>=2.0.0
+Requires-Dist: transformers>=4.30.0
+Requires-Dist: datasets>=2.14.0
+Requires-Dist: tqdm>=4.65.0
+Requires-Dist: numpy>=1.24.0
+Provides-Extra: dev
+Requires-Dist: pytest>=7.0.0; extra == "dev"
+Requires-Dist: black>=23.0.0; extra == "dev"
+Requires-Dist: ruff>=0.0.280; extra == "dev"

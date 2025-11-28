@@ -14,7 +14,7 @@ from typing import Literal, Optional
 MixedPrecisionDtype = Literal["bf16", "fp16", "fp32"]
 
 
-@dataclass(slots=True)
+@dataclass
 class TrainingConfig:
     """Hyperparameters and bookkeeping for a single training or finetuning run."""
 

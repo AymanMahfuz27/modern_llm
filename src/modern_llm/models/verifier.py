@@ -14,7 +14,7 @@ import torch
 from torch import Tensor, nn
 
 
-@dataclass(slots=True)
+@dataclass
 class VerifierConfig:
     """Hyperparameters for the verifier encoder."""
 

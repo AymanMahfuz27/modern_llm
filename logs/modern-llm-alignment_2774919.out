@@ -1,0 +1,55 @@
+==============================================
+Modern LLM: Alignment Pipeline
+Pretrain checkpoint: /work/09999/aymanmahfuz/ls6/modern_llm/checkpoints/tacc-full-pretrain/tacc-full-pretrain_step30000.pt
+Start time: Fri Nov 28 15:37:43 CST 2025
+==============================================
+Checking CUDA availability...
+PyTorch version: 2.8.0+cu128
+CUDA available: True
+CUDA version: 12.8
+GPU: NVIDIA H100 PCIe
+GPU Memory: 85.0 GB
+
+==================================================
+STAGE 1: Supervised Fine-Tuning (SFT)
+==================================================
+Loading pretrained model from /work/09999/aymanmahfuz/ls6/modern_llm/checkpoints/tacc-full-pretrain/tacc-full-pretrain_step30000.pt
+Model: 252.9M parameters
+Loading instruction dataset: tatsu-lab/alpaca
+Training examples: 52002
+Starting SFT for 5000 steps
+SFT complete. Final checkpoint: /work/09999/aymanmahfuz/ls6/modern_llm/checkpoints/tacc-full-sft-v2/tacc-full-sft_final.pt
+SFT complete: /work/09999/aymanmahfuz/ls6/modern_llm/checkpoints/tacc-full-sft-v2/tacc-full-sft_final.pt
+
+==================================================
+STAGE 2: Direct Preference Optimization (DPO)
+==================================================
+Loading SFT model from /work/09999/aymanmahfuz/ls6/modern_llm/checkpoints/tacc-full-sft-v2/tacc-full-sft_final.pt
+Model: 252.9M parameters
+Loading preference dataset: Anthropic/hh-rlhf
+Preference pairs: 160800
+Starting DPO for 3000 steps (beta=0.1)
+DPO complete. Final checkpoint: /work/09999/aymanmahfuz/ls6/modern_llm/checkpoints/tacc-full-dpo-v2/tacc-full-dpo_final.pt
+DPO complete: /work/09999/aymanmahfuz/ls6/modern_llm/checkpoints/tacc-full-dpo-v2/tacc-full-dpo_final.pt
+
+==================================================
+STAGE 3: Verifier Training
+==================================================
+Verifier: 38.9M parameters
+Loading verifier dataset: gsm8k
+Training examples: 14946
+Starting verifier training for 3000 steps
+Verifier training complete. Final checkpoint: /work/09999/aymanmahfuz/ls6/modern_llm/checkpoints/tacc-full-verifier-v2/tacc-full-verifier_final.pt
+Verifier complete: /work/09999/aymanmahfuz/ls6/modern_llm/checkpoints/tacc-full-verifier-v2/tacc-full-verifier_final.pt
+
+==================================================
+ALL ALIGNMENT STAGES COMPLETE!
+==================================================
+Checkpoints saved:
+  SFT:      /work/09999/aymanmahfuz/ls6/modern_llm/checkpoints/tacc-full-sft-v2/tacc-full-sft_final.pt
+  DPO:      /work/09999/aymanmahfuz/ls6/modern_llm/checkpoints/tacc-full-dpo-v2/tacc-full-dpo_final.pt
+  Verifier: /work/09999/aymanmahfuz/ls6/modern_llm/checkpoints/tacc-full-verifier-v2/tacc-full-verifier_final.pt
+
+==============================================
+Pipeline finished at Fri Nov 28 17:21:39 CST 2025
+==============================================

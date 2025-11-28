@@ -199,14 +199,27 @@ class AlignmentPipeline:
         from modern_llm.training.train_lm import run_training
 
         train_config = self.config.get_pretrain_config()
+        # Override output_dir to use checkpoint_dir (for TACC $WORK quota)
+        train_config.output_dir = self.checkpoint_dir / train_config.run_name
+        train_config.output_dir.mkdir(parents=True, exist_ok=True)
         model_config = self.config.get_model_config()
 
-        checkpoint = run_training(model_config, train_config)
+        # Pass datasets from config (defaults to wikitext-2 if not specified)
+        dataset_names = self.config.pretrain_datasets
+        checkpoint = run_training(
+            model_config, 
+            train_config, 
+            dataset_names=dataset_names,
+            tokenizer_name=self.config.tokenizer_name,
+        )
         return checkpoint
 
     def _run_sft(self) -> Path:
         """Run SFT stage."""
         train_config = self.config.get_sft_config()
+        # Override output_dir to use checkpoint_dir (for TACC $WORK quota)
+        train_config.output_dir = self.checkpoint_dir / train_config.run_name
+        train_config.output_dir.mkdir(parents=True, exist_ok=True)
         dataset_config = InstructionDatasetConfig(
             dataset_name=self.config.sft_dataset,
             max_length=self.config.max_seq_len,
@@ -222,6 +235,9 @@ class AlignmentPipeline:
     def _run_dpo(self) -> Path:
         """Run DPO stage."""
         train_config = self.config.get_dpo_config()
+        # Override output_dir to use checkpoint_dir (for TACC $WORK quota)
+        train_config.output_dir = self.checkpoint_dir / train_config.run_name
+        train_config.output_dir.mkdir(parents=True, exist_ok=True)
         dpo_config = DPOConfig(
             beta=self.config.dpo_beta,
             max_length=self.config.max_seq_len,
@@ -241,6 +257,9 @@ class AlignmentPipeline:
     def _run_verifier(self) -> Path:
         """Run verifier training stage."""
         train_config = self.config.get_verifier_config()
+        # Override output_dir to use checkpoint_dir (for TACC $WORK quota)
+        train_config.output_dir = self.checkpoint_dir / train_config.run_name
+        train_config.output_dir.mkdir(parents=True, exist_ok=True)
         verifier_config = VerifierConfig(
             vocab_size=50257,
             d_model=512,

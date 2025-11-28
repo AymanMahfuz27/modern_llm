@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from typing import Optional
 
 
-@dataclass(slots=True)
+@dataclass
 class MoEConfig:
     """Configuration for a Mixture-of-Experts feedforward sub-layer."""
 
@@ -33,7 +33,7 @@ class MoEConfig:
             raise ValueError(f"capacity_factor must be >= 1.0, received {self.capacity_factor}")
 
 
-@dataclass(slots=True)
+@dataclass
 class ModernLLMConfig:
     """Configuration for the custom decoder-only Transformer."""
 
