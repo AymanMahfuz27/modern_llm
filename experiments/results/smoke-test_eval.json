@@ -1,0 +1,27 @@
+{
+  "base": {
+    "stage": "base",
+    "perplexity": 12157.646548191282,
+    "loss": 9.405713596343993,
+    "gsm8k_em": 0.0,
+    "gsm8k_em_verifier": 0.0,
+    "num_params": 15498752
+  },
+  "sft": {
+    "stage": "sft",
+    "perplexity": 11845.200397650093,
+    "loss": 9.37967803478241,
+    "gsm8k_em": 0.0,
+    "gsm8k_em_verifier": 0.0,
+    "num_params": 15498752
+  },
+  "dpo": {
+    "stage": "dpo",
+    "perplexity": 11821.257317759937,
+    "loss": 9.377654657363891,
+    "gsm8k_em": 0.0,
+    "gsm8k_em_verifier": 0.0,
+    "num_params": 15498752
+  },
+  "verifier_accuracy": 0.0
+}

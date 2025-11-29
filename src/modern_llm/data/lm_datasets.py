@@ -14,12 +14,11 @@ from transformers import PreTrainedTokenizerBase
 
 
 # Dataset name -> (hf_name, hf_config, text_field) mapping
+# Note: openwebtext and bookcorpus removed - use legacy loading scripts not supported
 DATASET_REGISTRY = {
     "wikitext-2-raw-v1": ("wikitext", "wikitext-2-raw-v1", "text"),
     "wikitext-103-raw-v1": ("wikitext", "wikitext-103-raw-v1", "text"),
     "roneneldan/TinyStories": ("roneneldan/TinyStories", None, "text"),
-    "openwebtext": ("openwebtext", None, "text"),
-    "bookcorpus": ("bookcorpus", None, "text"),
 }
 
 

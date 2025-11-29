@@ -289,19 +289,19 @@ def gpu_smoke_config() -> PipelineConfig:
 def gpu_full_config() -> PipelineConfig:
     """Full config for high-end GPU training (A100/H100).
     
-    Optimized for quality with large data:
+    Optimized for quality with fast training:
     - WikiText-103 (100M tokens) + TinyStories (~500M tokens) for pretraining
-    - 60K pretrain steps for thorough training
+    - 40K pretrain steps (avoids slowdown observed after 31K on H100)
     - seq_len 1024 for fast attention
     - Flash Attention enabled (attention_sinks=False)
     - Model at ~253M params
     
     Estimated time on H100:
-    - Pretrain: 60K steps * 2s = 33h
+    - Pretrain: 40K steps * 1.5s = 17h
     - SFT: 5K steps = 3h  
     - DPO: 3K steps = 2h
     - Verifier: 3K steps = 2h
-    - Total: ~40h
+    - Total: ~25h (well under 48h limit)
     """
     return PipelineConfig(
         d_model=1024,
@@ -316,13 +316,15 @@ def gpu_full_config() -> PipelineConfig:
             "wikitext-103-raw-v1",
             "roneneldan/TinyStories",
         ],
-        pretrain_max_steps=60000,
+        pretrain_max_steps=40000,
         pretrain_batch_size=128,
         pretrain_micro_batch_size=8,
         sft_max_steps=5000,
         dpo_max_steps=3000,
         verifier_max_steps=3000,
         run_name="gpu-full",
+        eval_every=1000,
+        save_every=5000,
     )
 
 

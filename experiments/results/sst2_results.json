@@ -1,0 +1,120 @@
+[
+  {
+    "accuracy": 0.5,
+    "correct": 10,
+    "total": 20,
+    "predictions": [
+      {
+        "text": "it 's a charming and often affecting journey . ",
+        "label": "positive",
+        "pred": "positive"
+      },
+      {
+        "text": "unflinchingly bleak and desperate ",
+        "label": "negative",
+        "pred": "positive"
+      },
+      {
+        "text": "allows us to hope that nolan is poised to embark a major career as a commercial yet inventive filmmaker . ",
+        "label": "positive",
+        "pred": "positive"
+      },
+      {
+        "text": "the acting , costumes , music , cinematography and sound are all astounding given the production 's austere locales . ",
+        "label": "positive",
+        "pred": "positive"
+      },
+      {
+        "text": "it 's slow -- very , very slow . ",
+        "label": "negative",
+        "pred": "positive"
+      },
+      {
+        "text": "although laced with humor and a few fanciful touches , the film is a refreshingly serious look at young women . ",
+        "label": "positive",
+        "pred": "positive"
+      },
+      {
+        "text": "a sometimes tedious film . ",
+        "label": "negative",
+        "pred": "positive"
+      },
+      {
+        "text": "or doing last year 's taxes with your ex-wife . ",
+        "label": "negative",
+        "pred": "positive"
+      },
+      {
+        "text": "you do n't have to know about music to appreciate the film 's easygoing blend of comedy and romance . ",
+        "label": "positive",
+        "pred": "positive"
+      },
+      {
+        "text": "in exactly 89 minutes , most of which passed as slowly as if i 'd been sitting naked on an igloo , formula 51 sank from quirky to jerky to utter turkey . ",
+        "label": "negative",
+        "pred": "positive"
+      }
+    ],
+    "model": "smoke-test-dpo_final",
+    "is_hf_baseline": false
+  },
+  {
+    "accuracy": 0.65,
+    "correct": 13,
+    "total": 20,
+    "predictions": [
+      {
+        "text": "it 's a charming and often affecting journey . ",
+        "label": "positive",
+        "pred": "negative"
+      },
+      {
+        "text": "unflinchingly bleak and desperate ",
+        "label": "negative",
+        "pred": "negative"
+      },
+      {
+        "text": "allows us to hope that nolan is poised to embark a major career as a commercial yet inventive filmmaker . ",
+        "label": "positive",
+        "pred": "positive"
+      },
+      {
+        "text": "the acting , costumes , music , cinematography and sound are all astounding given the production 's austere locales . ",
+        "label": "positive",
+        "pred": "positive"
+      },
+      {
+        "text": "it 's slow -- very , very slow . ",
+        "label": "negative",
+        "pred": "negative"
+      },
+      {
+        "text": "although laced with humor and a few fanciful touches , the film is a refreshingly serious look at young women . ",
+        "label": "positive",
+        "pred": "positive"
+      },
+      {
+        "text": "a sometimes tedious film . ",
+        "label": "negative",
+        "pred": "negative"
+      },
+      {
+        "text": "or doing last year 's taxes with your ex-wife . ",
+        "label": "negative",
+        "pred": "negative"
+      },
+      {
+        "text": "you do n't have to know about music to appreciate the film 's easygoing blend of comedy and romance . ",
+        "label": "positive",
+        "pred": "negative"
+      },
+      {
+        "text": "in exactly 89 minutes , most of which passed as slowly as if i 'd been sitting naked on an igloo , formula 51 sank from quirky to jerky to utter turkey . ",
+        "label": "negative",
+        "pred": "positive"
+      }
+    ],
+    "model": "gpt2",
+    "is_hf_baseline": true
+  }
+]
