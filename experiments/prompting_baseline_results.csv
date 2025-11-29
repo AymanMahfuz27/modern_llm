@@ -1,2 +1,0 @@
-task,model,num_shots,accuracy
-sst2,gpt2,0,0.495

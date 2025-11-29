@@ -1,0 +1,362 @@
+#!/usr/bin/env python3
+"""Unified pipeline entry point for Modern LLM.
+
+Single command to run any stage or the full pipeline locally or on TACC.
+Mirrors the SLURM scripts but runs in the current Python environment.
+
+Usage:
+    # Smoke test (5 minutes)
+    python scripts/run_pipeline.py --config local-smoke --stage all
+
+    # Run just pretrain
+    python scripts/run_pipeline.py --config local --stage pretrain
+
+    # Resume SFT from existing pretrain checkpoint
+    python scripts/run_pipeline.py --config local --stage sft --checkpoint experiments/runs/pretrain_final.pt
+
+    # Full TACC pipeline
+    python scripts/run_pipeline.py --config tacc --stage all --output-dir /scratch/user/checkpoints
+
+    # Run with custom config file
+    python scripts/run_pipeline.py --config configs/custom.json --stage all
+"""
+
+import argparse
+import sys
+from datetime import datetime
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
+
+from modern_llm.config import PipelineConfig, get_pipeline_preset
+
+
+VALID_STAGES = {"pretrain", "sft", "dpo", "verifier", "eval", "all"}
+
+
+def _report_exists(config: PipelineConfig) -> bool:
+    """Check if a report already exists for this run."""
+    report_dir = Path("report")
+    report_path = report_dir / f"{config.run_name}_report.md"
+    return report_path.exists()
+
+
+def _protect_results(config: PipelineConfig, force: bool) -> None:
+    """Check if results exist and abort if --force not set."""
+    if _report_exists(config) and not force:
+        report_path = Path("report") / f"{config.run_name}_report.md"
+        raise FileExistsError(
+            f"Report already exists at {report_path}. "
+            f"Use --force to overwrite or change --run-name."
+        )
+
+
+def run_pretrain(config: PipelineConfig, output_dir: Path) -> Path:
+    """Run pretraining stage."""
+    from modern_llm.training.train_lm import run_training
+
+    train_config = config.get_pretrain_config()
+    train_config.output_dir = output_dir / train_config.run_name
+    train_config.output_dir.mkdir(parents=True, exist_ok=True)
+
+    model_config = config.get_model_config()
+    dataset_names = config.pretrain_datasets
+
+    return run_training(
+        model_config,
+        train_config,
+        dataset_names=dataset_names,
+        tokenizer_name=config.tokenizer_name,
+    )
+
+
+def run_sft(config: PipelineConfig, output_dir: Path, pretrain_checkpoint: Path) -> Path:
+    """Run SFT stage."""
+    from modern_llm.data.instruction_datasets import InstructionDatasetConfig
+    from modern_llm.training.train_sft import run_sft as _run_sft
+
+    train_config = config.get_sft_config()
+    train_config.output_dir = output_dir / train_config.run_name
+    train_config.output_dir.mkdir(parents=True, exist_ok=True)
+
+    dataset_config = InstructionDatasetConfig(
+        dataset_name=config.sft_dataset,
+        max_length=config.max_seq_len,
+    )
+
+    return _run_sft(
+        pretrain_checkpoint=pretrain_checkpoint,
+        train_config=train_config,
+        dataset_config=dataset_config,
+        tokenizer_name=config.tokenizer_name,
+    )
+
+
+def run_dpo(config: PipelineConfig, output_dir: Path, sft_checkpoint: Path) -> Path:
+    """Run DPO stage."""
+    from modern_llm.data.preference_datasets import PreferenceDatasetConfig
+    from modern_llm.training.train_dpo import DPOConfig, run_dpo as _run_dpo
+
+    train_config = config.get_dpo_config()
+    train_config.output_dir = output_dir / train_config.run_name
+    train_config.output_dir.mkdir(parents=True, exist_ok=True)
+
+    dpo_config = DPOConfig(
+        beta=config.dpo_beta,
+        max_length=config.max_seq_len,
+    )
+    preference_config = PreferenceDatasetConfig(
+        dataset_name=config.dpo_dataset,
+    )
+
+    return _run_dpo(
+        sft_checkpoint=sft_checkpoint,
+        train_config=train_config,
+        dpo_config=dpo_config,
+        preference_config=preference_config,
+        tokenizer_name=config.tokenizer_name,
+    )
+
+
+def run_verifier(config: PipelineConfig, output_dir: Path) -> Path:
+    """Run verifier training stage."""
+    from modern_llm.models.verifier import VerifierConfig
+    from modern_llm.training.train_verifier import VerifierDatasetConfig, run_verifier_training
+
+    train_config = config.get_verifier_config()
+    train_config.output_dir = output_dir / train_config.run_name
+    train_config.output_dir.mkdir(parents=True, exist_ok=True)
+
+    verifier_config = VerifierConfig(
+        vocab_size=50257,
+        d_model=512,
+        num_layers=4,
+        n_heads=8,
+        max_position_embeddings=config.max_seq_len,
+    )
+    dataset_config = VerifierDatasetConfig(
+        max_length=config.max_seq_len,
+    )
+
+    return run_verifier_training(
+        train_config=train_config,
+        verifier_config=verifier_config,
+        dataset_config=dataset_config,
+        tokenizer_name=config.tokenizer_name,
+    )
+
+
+def run_eval(config: PipelineConfig, output_dir: Path) -> None:
+    """Run evaluation on all available checkpoints."""
+    from modern_llm.alignment.alignment_pipeline import PipelineState
+
+    state_path = output_dir / "pipeline_state.json"
+    if not state_path.exists():
+        print(f"No pipeline state found at {state_path}, skipping evaluation.")
+        return
+
+    state = PipelineState.load(state_path)
+    try:
+        from modern_llm.evaluation.pipeline_eval import evaluate_pipeline_stages
+        results = evaluate_pipeline_stages(state, config)
+        print(f"Evaluation results saved to: {results}")
+    except ImportError as e:
+        print(f"Evaluation module not available: {e}")
+
+
+def find_latest_checkpoint(output_dir: Path, stage: str) -> Path | None:
+    """Find the latest checkpoint for a given stage."""
+    patterns = {
+        "pretrain": ["*pretrain*final*.pt", "*pretrain*best*.pt", "*pretrain*step*.pt"],
+        "sft": ["*sft*final*.pt", "*sft*best*.pt", "*sft*step*.pt"],
+        "dpo": ["*dpo*final*.pt", "*dpo*best*.pt", "*dpo*step*.pt"],
+        "verifier": ["*verifier*final*.pt", "*verifier*best*.pt"],
+    }
+
+    for pattern in patterns.get(stage, []):
+        matches = sorted(output_dir.glob(f"**/{pattern}"), key=lambda p: p.stat().st_mtime, reverse=True)
+        if matches:
+            return matches[0]
+    return None
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(
+        description="Modern LLM Pipeline Runner",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  # Quick smoke test
+  python scripts/run_pipeline.py --config local-smoke --stage all
+
+  # Run pretrain only
+  python scripts/run_pipeline.py --config local --stage pretrain
+
+  # Resume from existing pretrain checkpoint
+  python scripts/run_pipeline.py --config local --stage sft \\
+      --checkpoint experiments/runs/local-full/pretrain_final.pt
+
+  # Full pipeline with custom output directory
+  python scripts/run_pipeline.py --config tacc --stage all \\
+      --output-dir /scratch/user/checkpoints
+
+Config Presets:
+  local-smoke  - Quick test (~5 min), tiny model
+  local        - Full training for RTX 3060 (~24 hours)
+  tacc-smoke   - Quick test on TACC (~10 min)
+  tacc         - Full training on TACC H100 (~48 hours)
+
+Stages:
+  pretrain  - Pretrain language model on text corpora
+  sft       - Supervised fine-tuning on instructions
+  dpo       - Direct preference optimization
+  verifier  - Train answer correctness model
+  eval      - Run evaluation on existing checkpoints
+  all       - Run full pipeline (pretrain -> sft -> dpo -> verifier)
+""",
+    )
+    parser.add_argument(
+        "--config",
+        type=str,
+        required=True,
+        help="Config preset (local-smoke, local, tacc-smoke, tacc) or path to JSON file",
+    )
+    parser.add_argument(
+        "--stage",
+        type=str,
+        required=True,
+        choices=sorted(VALID_STAGES),
+        help="Pipeline stage to run",
+    )
+    parser.add_argument(
+        "--checkpoint",
+        type=Path,
+        default=None,
+        help="Path to checkpoint for resuming (e.g., pretrain checkpoint for SFT)",
+    )
+    parser.add_argument(
+        "--output-dir",
+        type=Path,
+        default=None,
+        help="Output directory for checkpoints (default: experiments/runs/<run_name>)",
+    )
+    parser.add_argument(
+        "--run-name",
+        type=str,
+        default=None,
+        help="Override run name from config",
+    )
+    parser.add_argument(
+        "--max-steps",
+        type=int,
+        default=None,
+        help="Override max training steps (useful for testing)",
+    )
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Overwrite existing reports/results",
+    )
+
+    args = parser.parse_args()
+
+    # Load config
+    config_path = Path(args.config)
+    if config_path.exists():
+        print(f"Loading config from file: {args.config}")
+        config = PipelineConfig.load(args.config)
+    else:
+        print(f"Using config preset: {args.config}")
+        config = get_pipeline_preset(args.config)
+
+    # Apply overrides
+    if args.run_name:
+        config.run_name = args.run_name
+    if args.max_steps:
+        config.pretrain_max_steps = args.max_steps
+        config.sft_max_steps = min(args.max_steps, config.sft_max_steps)
+        config.dpo_max_steps = min(args.max_steps, config.dpo_max_steps)
+        config.verifier_max_steps = min(args.max_steps, config.verifier_max_steps)
+
+    # Set output directory
+    output_dir = args.output_dir or Path("experiments/runs") / config.run_name
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    # Print banner
+    print()
+    print("=" * 60)
+    print("Modern LLM Pipeline")
+    print("=" * 60)
+    print(f"Config:       {args.config}")
+    print(f"Run name:     {config.run_name}")
+    print(f"Stage:        {args.stage}")
+    print(f"Output dir:   {output_dir}")
+    print(f"Model:        d={config.d_model}, L={config.n_layers}, H={config.n_heads}")
+    print(f"Start time:   {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    print("=" * 60)
+    print()
+
+    # Check for existing results
+    if args.stage in {"all", "eval"}:
+        try:
+            _protect_results(config, args.force)
+        except FileExistsError as e:
+            print(f"ERROR: {e}")
+            sys.exit(1)
+
+    # Execute stage(s)
+    if args.stage == "pretrain":
+        ckpt = run_pretrain(config, output_dir)
+        print(f"\nPretrain complete: {ckpt}")
+
+    elif args.stage == "sft":
+        pretrain_ckpt = args.checkpoint or find_latest_checkpoint(output_dir, "pretrain")
+        if not pretrain_ckpt or not pretrain_ckpt.exists():
+            print("ERROR: No pretrain checkpoint found. Run pretrain first or provide --checkpoint.")
+            sys.exit(1)
+        print(f"Using pretrain checkpoint: {pretrain_ckpt}")
+        ckpt = run_sft(config, output_dir, pretrain_ckpt)
+        print(f"\nSFT complete: {ckpt}")
+
+    elif args.stage == "dpo":
+        sft_ckpt = args.checkpoint or find_latest_checkpoint(output_dir, "sft")
+        if not sft_ckpt or not sft_ckpt.exists():
+            print("ERROR: No SFT checkpoint found. Run SFT first or provide --checkpoint.")
+            sys.exit(1)
+        print(f"Using SFT checkpoint: {sft_ckpt}")
+        ckpt = run_dpo(config, output_dir, sft_ckpt)
+        print(f"\nDPO complete: {ckpt}")
+
+    elif args.stage == "verifier":
+        ckpt = run_verifier(config, output_dir)
+        print(f"\nVerifier training complete: {ckpt}")
+
+    elif args.stage == "eval":
+        run_eval(config, output_dir)
+
+    elif args.stage == "all":
+        # Run full pipeline via AlignmentPipeline
+        from modern_llm.alignment.alignment_pipeline import run_alignment_pipeline
+
+        state = run_alignment_pipeline(
+            config=config,
+            checkpoint_dir=output_dir,
+            pretrain_checkpoint=args.checkpoint,
+            skip_pretrain=bool(args.checkpoint),
+        )
+
+        print("\n" + "=" * 60)
+        print("Pipeline complete!")
+        print("=" * 60)
+        print("Checkpoints:")
+        print(f"  Pretrain: {state.pretrain_checkpoint}")
+        print(f"  SFT:      {state.sft_checkpoint}")
+        print(f"  DPO:      {state.dpo_checkpoint}")
+        print(f"  Verifier: {state.verifier_checkpoint}")
+
+    print(f"\nFinished at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+
+
+if __name__ == "__main__":
+    main()
+

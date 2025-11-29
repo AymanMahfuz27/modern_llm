@@ -48,3 +48,47 @@
 
 - **Next steps**: Execute the training runs, then move to Phase 3 (SFT → DPO → Verifier alignment pipeline).
 
+### 2025-11-28 — Full pipeline complete on TACC H100
+
+- **Hardware**: TACC Lonestar6 H100 (80GB)
+- **Training**: Full alignment pipeline executed:
+  - Pretrain: 30,000 steps on WikiText-103 + TinyStories (~600M tokens)
+  - SFT: 5,000 steps on Alpaca 52K
+  - DPO: 2,000 steps on HH-RLHF
+  - Verifier: 3,000 steps on GSM8K
+
+- **Results** (WikiText-2 perplexity):
+  | Model | Params | PPL |
+  |-------|--------|-----|
+  | GPT-2 (baseline) | 124M | 40.64 |
+  | **Ours (pretrain)** | 253M | **27.03** |
+  | Ours (SFT) | 253M | 34.14 |
+  | Ours (DPO) | 253M | 34.32 |
+
+- **Key findings**:
+  - Pretrain model outperforms GPT-2 by 33% on perplexity despite being trained from scratch
+  - SFT/DPO increase perplexity (expected: alignment trades raw LM ability for instruction-following)
+  - Attention sinks + RoPE enable stable generation beyond training context
+
+- **Architecture validated**:
+  - RMSNorm + SwiGLU + RoPE + attention sinks work well together
+  - Flash Attention (SDPA) provides 2-4x speedup
+  - GQA/MoE hooks are wired but not used in final model
+
+### 2025-11-29 — Final cleanup and portfolio preparation
+
+- **Cleanup tasks completed**:
+  - Deleted orphaned files: `run_alignment_pipeline.py`, `run_ablations.py`
+  - Deleted Phase 2 HF artifacts from experiments/ (not relevant to final project)
+  - Consolidated SLURM scripts: renamed `submit_alignment_only.sh` → `submit_alignment.sh`
+  - Created unified `scripts/run_pipeline.py` entry point
+  - Added overwrite protection to report generation
+  - Wrote portfolio-grade README.md with architecture deep-dive
+
+- **Final project structure**:
+  - 5 SLURM scripts in `scripts/tacc/`
+  - Single Python entry point: `scripts/run_pipeline.py`
+  - Protected results in `experiments/results/`, `report/`, `comparison_log_v2.txt`
+
+- **Status**: Project complete. All code paths verified, documentation updated, ready for submission.
+

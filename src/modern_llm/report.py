@@ -59,16 +59,26 @@ def generate_report(
     state: PipelineState,
     config: PipelineConfig,
     output_dir: Optional[Path] = None,
+    output_path: Optional[Path] = None,
 ) -> Path:
     """Generate a markdown report for the pipeline run.
 
     Pre: Pipeline state has valid checkpoint paths.
     Post: Returns path to generated report.md file.
-    """
-    output_dir = output_dir or Path("report")
-    output_dir.mkdir(parents=True, exist_ok=True)
 
-    report_path = output_dir / f"{config.run_name}_report.md"
+    Args:
+        state: Pipeline state with checkpoint paths.
+        config: Pipeline configuration.
+        output_dir: Directory for report (default: report/).
+        output_path: Explicit report path (overrides output_dir).
+    """
+    if output_path:
+        report_path = output_path
+        report_path.parent.mkdir(parents=True, exist_ok=True)
+    else:
+        output_dir = output_dir or Path("report")
+        output_dir.mkdir(parents=True, exist_ok=True)
+        report_path = output_dir / f"{config.run_name}_report.md"
 
     # Load evaluation results if available
     eval_results = None

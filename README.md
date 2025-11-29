@@ -1,285 +1,300 @@
 # Modern LLM
 
-Modern LLM is a from-scratch implementation of a modern decoder-only language model, plus a full training and evaluation stack that mirrors how small-scale frontier-style systems are built: custom Transformer architecture, shared training loop, HF LoRA baselines, and an alignment pipeline scaffold (SFT → DPO → verifier).
-
-The code is written for inspection. Each major component points back to specific papers and equations, and the repository is structured so a reviewer can drop directly into the part they care about: architecture, training, evaluation, or alignment.
+A from-scratch implementation of a **frontier-style LLM training pipeline**, demonstrating modern architectural choices (RoPE, RMSNorm, SwiGLU, attention sinks) and a complete alignment workflow (Pretrain → SFT → DPO → Verifier). Trained a 253M parameter model that achieves **27.03 perplexity** on WikiText-2, outperforming GPT-2 (124M) at 40.64.
 
 ---
 
-## What this repo contains
+## Results
 
-- **Custom decoder-only LM** with:
-  - RoPE positional embeddings
-  - RMSNorm instead of LayerNorm
-  - SwiGLU feedforward blocks
-  - Attention sinks for long-context stability
-  - Optional Grouped Query Attention (GQA) and Mixture-of-Experts (MoE) hooks
-- **Shared training loop** with gradient accumulation, mixed precision, checkpointing, and evaluation.
-- **HF finetuning stack**:
-  - GPT‑2 + LoRA on SST‑2 (classification)
-  - T5‑small + LoRA on SAMSum (summarization)
-  - GPT‑2 + LoRA on GSM8K (math reasoning)
-  - Zero-/few-shot prompting baselines for all three tasks.
-- **Alignment scaffolding**:
-  - DPO loss implementation
-  - Verifier model skeleton for math/QA correctness
-  - Alignment pipeline entrypoint (Base → SFT → DPO → Verifier).
-- **Experiment orchestration**:
-  - One-command scripts to run Phase 1 (scratch LM) and Phase 2 (HF + prompting), plus evaluation-only runners.
+| Model | Parameters | WikiText-2 PPL |
+|-------|------------|----------------|
+| GPT-2 (baseline) | 124M | 40.64 |
+| **Ours (pretrain)** | 253M | **27.03** |
+| Ours (SFT) | 253M | 34.14 |
+| Ours (DPO) | 253M | 34.32 |
 
-This is a single-GPU, RTX‑3060‑calibrated codebase; configs and scripts are tuned to that constraint.
+*Trained on TACC Lonestar6 H100. Full results in `experiments/comparison_log_v2.txt`.*
 
 ---
 
-## Code map
+## Architecture Deep-Dive
 
-### Core package: `src/modern_llm/`
+The model implements a PaLM/LLaMA-style decoder-only Transformer with four key modern components:
 
-- `models/`
-  - `transformer.py`
-    - `ModernDecoderLM`: the main decoder-only LM.
-    - Uses:
-      - `DecoderBlock` (RMSNorm → MultiHeadAttention → RMSNorm → SwiGLU)
-      - RoPE for positional information
-      - attention sinks / GQA / MoE toggles via `ModernLLMConfig`.
-  - `attention.py`
-    - `AttentionConfig`, `MultiHeadAttention`:
-      - Scaled dot-product attention per Vaswani et al. (2017).
-      - RoPE (Su et al. 2021) applied to Q/K.
-      - Attention sinks (Press et al. 2021) via learnable “sink” tokens.
-      - Optional GQA (shared K/V heads across Q heads) to reduce KV cache.
-  - `layers.py`
-    - `RMSNorm`: root-mean-square normalization (Zhang & Sennrich 2019).
-    - `SwiGLU`: SwiGLU feedforward module (Shazeer 2020; PaLM 2022).
-  - `moe.py`
-    - MoE FFN scaffold: top‑k expert routing; wired but optional in configs.
-  - `verifier.py`
-    - `VerifierConfig`, `VerifierModel`: encoder-only classifier for correctness scoring on (problem, answer) pairs.
-    - Architecture: small Transformer encoder + linear head; forward is intentionally left for alignment work (Phase 3).
+### RMSNorm
 
-- `config/`
-  - `model_config.py`
-    - `ModernLLMConfig`, `MoEConfig`: strict-validated hyperparameters for the decoder LM (dimensions, RoPE, sinks, GQA, MoE, etc.).
-  - `train_config.py`
-    - `TrainingConfig`: batch sizes, gradient accumulation, LR schedule, logging/ckpt cadence, mixed precision.
+**Reference:** Zhang & Sennrich, 2019
 
-- `data/`
-  - `lm_datasets.py`
-    - `LanguageModelingDatasetConfig`, `load_causal_lm_dataset`:
-      - WikiText‑2 / TinyStories style language modeling.
-      - Returns tokenized `datasets.Dataset` with `input_ids`, `attention_mask`, `labels`.
-  - `task_datasets.py`
-    - `TaskDatasetConfig`, `load_supervised_text_dataset`:
-      - SST‑2, SAMSum, GSM8K, etc. via Hugging Face `datasets`.
-      - Handles both classification (`task_type="classification"`) and seq2seq (`task_type="seq2seq"`).
-  - `preference_datasets.py`
-    - `PreferenceDatasetConfig`, `load_preference_dataset`:
-      - Loader for (prompt, chosen, rejected) pairs for DPO.
+```
+y = x · γ / √(mean(x²) + ε)
+```
 
-- `training/`
-  - `trainer_base.py`
-    - `Trainer`: single place where optimization happens.
-      - Gradient accumulation
-      - Mixed precision (fp16/bf16)
-      - Grad clipping
-      - LR warmup
-      - TQDM progress bar with remaining steps
-      - Periodic eval + checkpointing.
-  - `train_lm.py`
-    - CLI entrypoint for language modeling on WikiText‑2 / TinyStories.
-    - Wires `ModernDecoderLM` + LM datasets + `Trainer`.
-    - Includes `generate_text(...)` helper used across the repo.
-  - `train_sft.py`, `train_dpo.py`, `train_verifier.py`
-    - Stubs for Phase 3 alignment work (SFT, DPO training loop, verifier training).
+Faster than LayerNorm (no mean subtraction), used in LLaMA/PaLM. Stabilizes training without centering.
 
-- `hf/`
-  - `lora_utils.py`
-    - `LoraConfig`, `prepare_lora_model`: thin wrapper around `peft` to inject LoRA adapters into HF models (GPT‑2, T5, etc.).
-  - `finetune_gpt2_sst2.py`
-    - GPT‑2 / DistilGPT2 + LoRA on SST‑2 (GLUE).
-    - Reuses `TaskDatasetConfig` + `Trainer` for consistency with scratch LM.
-  - `finetune_t5_samsum.py`
-    - T5‑small / FLAN‑T5 + optional LoRA on SAMSum summarization.
-    - Supports a dummy in‑memory dataset mode for fast smoke tests; full SAMSum via `datasets` for real runs.
-  - `finetune_math_gsm8k.py`
-    - GPT‑2 / TinyLlama (via `AutoModelForCausalLM`) + LoRA on GSM8K subset.
-    - Generates EM-style math accuracy metrics.
-  - `prompting_baselines.py`
-    - Zero-/few-shot prompting for SST‑2, SAMSum, GSM8K.
-    - Uses the same `evaluation.metrics` utilities so prompting vs finetuning vs scratch are directly comparable.
+```19:55:src/modern_llm/models/layers.py
+class RMSNorm(nn.Module):
+    """Root Mean Square LayerNorm (Zhang & Sennrich, 2019).
 
-- `alignment/`
-  - `dpo_loss.py`
-    - Implementation of Direct Preference Optimization objective (Rafailov et al. 2023).
-  - `alignment_pipeline.py`
-    - Orchestrator stub for Base → SFT → DPO → Verifier. To be filled in Phase 3 with real runs.
+    Math:
+        y = x * γ / sqrt(mean(x^2) + ε)
+        where γ is a learned weight vector.
+    ...
+    def forward(self, x: Tensor) -> Tensor:
+        # mean(x^2) is the RMS statistic from Zhang & Sennrich (2019, Eq. 3)
+        variance = x.pow(2).mean(dim=-1, keepdim=True)
+        normalized = x * torch.rsqrt(variance + self.eps)
+        return normalized * self.weight
+```
 
-- `evaluation/`
-  - `metrics.py`
-    - `EvaluationResult`, `compute_metrics`, `compute_f1`:
-      - Accuracy and macro‑F1 for classification (SST‑2).
-      - Exact match for GSM8K/math.
-      - ROUGE‑1/2/L for summarization (via `evaluate` + `rouge-score`).
-  - `analysis.py`, `attention_viz.py`, `verifier_eval.py`
-    - Stubs/utility scaffolds for error analysis, attention visualization, and verifier ablations.
+### RoPE (Rotary Position Embeddings)
 
-- `utils/`
-  - `checkpointing.py`
-    - `save_checkpoint`, `load_checkpoint`: central checkpoint IO.
-    - New checkpoints store `model_state`, optimizer state, and model config (for rebuilding `ModernDecoderLM`).
-  - `logging_utils.py`
-    - Creates per‑run loggers used by `Trainer`.
+**Reference:** Su et al., 2021
+
+```
+q' = q ⊙ cos(mθ) + rotate_half(q) ⊙ sin(mθ)
+```
+
+Encodes relative positions via rotation matrices applied to Q/K. Better length extrapolation than absolute embeddings.
+
+```190:196:src/modern_llm/models/attention.py
+    def _apply_rope(self, tensor: Tensor, seq_len: int, offset: int = 0) -> Tensor:
+        cos, sin = self._get_rope_factors(seq_len + offset, tensor.device, tensor.dtype)
+        cos = cos[offset : offset + seq_len]
+        sin = sin[offset : offset + seq_len]
+        cos = cos.unsqueeze(0).unsqueeze(0)
+        sin = sin.unsqueeze(0).unsqueeze(0)
+        return (tensor * cos) + (self._rotate_half(tensor) * sin)
+```
+
+### SwiGLU
+
+**Reference:** Shazeer, 2020; Chowdhery et al., 2022
+
+```
+SwiGLU(x) = (Wg·x ⊙ swish(Wv·x)) · Wo
+```
+
+Gated linear unit with Swish activation. 2-4% better than GELU with similar parameter count.
+
+```72:114:src/modern_llm/models/layers.py
+class SwiGLU(nn.Module):
+    """SwiGLU feedforward block (Shazeer, 2020; Chowdhery et al., 2022).
+
+    Math:
+        SwiGLU(x) = W_o[(W_g x) ⊙ swish(W_v x)]
+        where W_g splits into gate/value projections and ⊙ is element-wise multiply.
+    ...
+    def forward(self, x: Tensor) -> Tensor:
+        gate_out, value = self.gate(x).chunk(2, dim=-1)
+        activated = _swish(gate_out)
+        gated = activated * value
+        return self.proj(gated)
+```
+
+### Attention Sinks
+
+**Reference:** Press et al., 2021; Xiao et al., 2023
+
+Learnable "sink" tokens that every position can attend to, stabilizing generation beyond the training context length.
+
+```95:100:src/modern_llm/models/attention.py
+        if config.use_attention_sinks:
+            self.sink_states = nn.Parameter(
+                torch.randn(config.num_attention_sinks, config.d_model) * 0.02
+            )
+        else:
+            self.register_parameter("sink_states", None)
+```
 
 ---
 
-## Scripts and orchestration
+## Training Pipeline
 
-All of the “glue” lives under `scripts/`. They are intentionally thin and call into `modern_llm` rather than re‑implementing logic.
+```
+WikiText-103 + TinyStories (600M tokens)
+         ↓
+    [Pretrain] → Base Model (253M params, d=768, L=12, H=12)
+         ↓
+    [SFT] → Instruction-tuned (Alpaca 52K)
+         ↓
+    [DPO] → Preference-aligned (HH-RLHF 161K)
+         ↓
+    [Verifier] → Answer scoring (GSM8K)
+```
 
-- **Phase 1 – scratch LM:**
-  - `train_lm_from_config.py`
-    - Reads a JSON config (e.g. `configs/lm_max_rtx3060.json`) and runs full LM training.
-  - `evaluate_lm_checkpoints.py`
-    - Iterates over `experiments/runs/**.pt`, runs validation, writes CSV of loss/perplexity.
-  - `generate_from_checkpoints.py`
-    - Samples from checkpoints on fixed prompts, writes JSON with generations.
-  - `experiment_attention_sinks.py`
-    - Trains small models with/without attention sinks and samples at extended context to compare stability.
-
-- **Phase 2 – HF finetuning + prompting:**
-  - `evaluate_hf_sst2.py`
-    - Loads a GPT‑2/DistilGPT2 SST‑2 checkpoint and computes accuracy + macro‑F1; logs misclassified examples.
-  - `evaluate_hf_samsum.py`
-    - Loads a T5 SAMSum checkpoint and computes ROUGE‑1/2/L.
-  - `evaluate_hf_gsm8k.py`
-    - Evaluates a GSM8K checkpoint, extracting numeric answers and computing EM; logs error cases.
-  - `setup_check.py`
-    - Quick import check for `torch`, `transformers`, `datasets`, `peft`, `evaluate`, `rouge_score`, etc.
-
-- **One-button runners:**
-  - `run_phase1_phase2.sh`
-    - Runs:
-      - LM checkpoint eval + generation
-      - Max‑size LM training on WikiText‑2
-      - Attention sinks experiment
-      - GPT‑2 LoRA SST‑2
-      - T5 LoRA SAMSum
-      - GPT‑2 LoRA GSM8K
-      - Prompting baselines
-  - `run_phase1_only.sh` / `run_phase2_only.sh`
-    - Isolated Phase 1 or Phase 2 baselines.
-  - `run_all_evaluations.sh`
-    - Re‑runs all evaluation scripts assuming checkpoints already exist.
-  - `smoke_test_phase1_phase2.sh`
-    - Short, low‑step sanity check that all paths (LM, GPT‑2 SST‑2, T5 SAMSum) are wired correctly.
-  - `run_experiments.py`
-    - Python entrypoint mirroring the bash scripts:
-      - `--phase 1` / `2` / `all` / `eval` / `smoke`.
+**References:**
+- SFT: Ouyang et al., 2022 (InstructGPT)
+- DPO: Rafailov et al., 2023
+- Verifier: Lightman et al., 2023
 
 ---
 
-## Model choices (why this architecture)
+## Code Organization
 
-- **RMSNorm + SwiGLU**
-  - Matches the “modern” design of PaLM/LLaMA‑style models and has better training stability than vanilla LayerNorm + GELU at comparable parameter counts.
-  - Implemented explicitly with equations in `layers.py` so reviewers can map code ↔ paper.
-
-- **RoPE positional embeddings**
-  - Used by GPT‑NeoX/LLaMA; improves extrapolation vs fixed absolute embeddings.
-  - Implemented inside `MultiHeadAttention` in `attention.py`, following Su et al. (2021).
-
-- **Attention sinks**
-  - Inspired by Press et al. (2021) to improve generation stability beyond the training context.
-  - Configurable via `ModernLLMConfig.use_attention_sinks` and demonstrated by `experiment_attention_sinks.py`.
-
-- **GQA and MoE toggles**
-  - GQA (grouped K/V heads) reduces KV cache memory; MoE allows sparsely activated FFNs.
-  - Both are wired into the configs and attention/FFN layers so ablations can be done without touching core training code.
-
-- **Shared Trainer**
-  - The same `Trainer` drives:
-    - Scratch LM training
-    - HF GPT‑2 SST‑2 finetuning
-    - T5 SAMSum
-    - GSM8K math runs.
-  - This keeps comparisons about *models* and *objectives* rather than “different training code.”
+```
+modern_llm/
+├── configs/                        # Hardware-specific JSON configs
+│   ├── lm_max_rtx3060.json         # Max model for RTX 3060
+│   └── *.json                      # Other hardware presets
+│
+├── experiments/
+│   ├── results/                    # Evaluation JSONs/CSVs
+│   ├── runs/                       # Local checkpoints
+│   └── comparison_log_v2.txt       # Key perplexity results
+│
+├── report/                         # Generated markdown reports
+│
+├── scripts/
+│   ├── run_pipeline.py             # Unified Python entry point
+│   ├── speedrun_pipeline.py        # Full pipeline orchestrator
+│   ├── evaluate_and_compare.py     # GPT-2 comparison script
+│   ├── pretrain.py                 # Standalone pretraining
+│   ├── sft.py                      # Standalone SFT
+│   ├── dpo.py                      # Standalone DPO
+│   ├── train_verifier.py           # Verifier training
+│   └── tacc/                       # SLURM scripts
+│       ├── submit_speedrun.sh      # Full pipeline
+│       ├── submit_pretrain_only.sh # Pretrain only
+│       ├── submit_alignment.sh     # SFT + DPO + Verifier
+│       ├── submit_smoke_test.sh    # Quick test
+│       └── submit_eval.sh          # Evaluation only
+│
+├── src/modern_llm/
+│   ├── models/
+│   │   ├── transformer.py          # ModernDecoderLM
+│   │   ├── attention.py            # Multi-head attention + RoPE + sinks
+│   │   ├── layers.py               # RMSNorm, SwiGLU
+│   │   ├── moe.py                  # Mixture-of-Experts (optional)
+│   │   └── verifier.py             # Answer correctness model
+│   │
+│   ├── config/
+│   │   ├── model_config.py         # ModernLLMConfig, MoEConfig
+│   │   ├── train_config.py         # TrainingConfig
+│   │   ├── hardware_config.py      # Hardware presets
+│   │   └── pipeline_config.py      # Full pipeline config
+│   │
+│   ├── data/
+│   │   ├── lm_datasets.py          # Language modeling data
+│   │   ├── instruction_datasets.py # SFT instruction data
+│   │   └── preference_datasets.py  # DPO preference pairs
+│   │
+│   ├── training/
+│   │   ├── trainer_base.py         # Shared Trainer (AMP, grad accum)
+│   │   ├── train_lm.py             # Pretrain entrypoint
+│   │   ├── train_sft.py            # SFT entrypoint
+│   │   ├── train_dpo.py            # DPO entrypoint
+│   │   └── train_verifier.py       # Verifier entrypoint
+│   │
+│   ├── alignment/
+│   │   ├── dpo_loss.py             # DPO objective
+│   │   └── alignment_pipeline.py   # Pipeline orchestrator
+│   │
+│   ├── evaluation/
+│   │   ├── metrics.py              # Perplexity, accuracy, ROUGE
+│   │   └── pipeline_eval.py        # Stage comparison
+│   │
+│   └── utils/
+│       ├── checkpointing.py        # Save/load checkpoints
+│       └── logging_utils.py        # Logging setup
+│
+├── tests/                          # Unit tests
+├── speedrun.sh                     # One-button entry point
+├── requirements.txt                # Dependencies
+└── README.md                       # This file
+```
 
 ---
 
-## Getting started
-
-Create and activate a virtualenv, then install dependencies:
+## Quick Start
 
 ```bash
+# Clone and setup
+git clone https://github.com/yourusername/modern_llm.git
+cd modern_llm
 python -m venv .venv
-source .venv/bin/activate  # Linux/macOS
-# .venv\Scripts\activate   # Windows PowerShell
-
+source .venv/bin/activate
 pip install -r requirements.txt
-pytest  # optional: run quick tests
+
+# Verify installation
+python -c "from modern_llm.models import ModernDecoderLM; print('OK')"
+
+# Smoke test (5 minutes, CPU/GPU)
+python scripts/run_pipeline.py --config local-smoke --stage all
+
+# Or use the one-liner
+bash speedrun.sh local-smoke
 ```
 
 ---
 
-## Running experiments
+## Running Experiments
 
-### End-to-end Phase 1 & 2 (baseline stack)
-
-```bash
-cd /home/ayman/modern_llm  # adjust if needed
-bash scripts/run_phase1_phase2.sh
-```
-
-This:
-- Evaluates existing LM checkpoints and generates samples.
-- Trains a max‑size scratch LM on WikiText‑2 (`configs/lm_max_rtx3060.json`).
-- Runs the attention sinks experiment.
-- Runs GPT‑2 + LoRA on SST‑2, T5 + LoRA on SAMSum, GPT‑2 + LoRA on GSM8K.
-- Runs prompting baselines for all three tasks.
-
-### Per-phase
+### Local (RTX 3060 / similar)
 
 ```bash
-# Phase 1 only (scratch LM + max-size model + attention sinks)
-bash scripts/run_phase1_only.sh
+# Full pipeline (~24 hours on RTX 3060)
+python scripts/run_pipeline.py --config local --stage all
 
-# Phase 2 only (HF finetuning + prompting baselines)
-bash scripts/run_phase2_only.sh
-
-# Evaluations only (if checkpoints already exist)
-bash scripts/run_all_evaluations.sh
+# Individual stages
+python scripts/run_pipeline.py --config local --stage pretrain
+python scripts/run_pipeline.py --config local --stage sft --checkpoint experiments/runs/pretrain_final.pt
+python scripts/run_pipeline.py --config local --stage dpo --checkpoint experiments/runs/sft_final.pt
 ```
 
-### Python-only orchestration
+### TACC (Lonestar6)
 
 ```bash
-python scripts/run_experiments.py --phase smoke   # quick sanity run
-python scripts/run_experiments.py --phase all     # full Phase 1 + 2
+cd scripts/tacc
+
+# Full pipeline (H100, ~48 hours)
+sbatch submit_speedrun.sh
+
+# Or run stages separately
+sbatch submit_pretrain_only.sh
+sbatch submit_alignment.sh  # After pretrain completes
+sbatch submit_eval.sh       # After alignment completes
 ```
 
-### Max-size scratch LM (direct)
+### Config Presets
 
-```bash
-python scripts/train_lm_from_config.py --config configs/lm_max_rtx3060.json
-```
-
-This uses a ~PaLM/LLaMA‑style stack (RMSNorm + SwiGLU + RoPE + sinks) at a size calibrated for a single RTX 3060 (12 GB) and runs for many hours to reach a strong WikiText‑2 baseline.
+| Preset | Hardware | Duration | Description |
+|--------|----------|----------|-------------|
+| `local-smoke` | Any | ~5 min | Quick sanity check |
+| `local` | RTX 3060 | ~24 hours | Full training |
+| `tacc-smoke` | A100/H100 | ~10 min | TACC quick test |
+| `tacc` | H100 | ~48 hours | Full TACC training |
 
 ---
 
-## Status and next work
+## Reproducing Paper Results
 
-- **Implemented and exercised:**
-  - Modern decoder-only LM with RoPE, RMSNorm, SwiGLU, attention sinks, optional GQA/MoE.
-  - Shared Trainer with AMP, grad accumulation, and checkpointing.
-  - GPT‑2 + LoRA on SST‑2, T5 + LoRA on SAMSum (with synthetic smoke mode), GPT‑2 + LoRA on GSM8K.
-  - Prompting baselines for SST‑2/SAMSum/GSM8K.
-  - Evaluation scripts for all of the above.
+The results in `experiments/comparison_log_v2.txt` were obtained with:
 
-- **Scaffolded for Phase 3+ (alignment & advanced features):**
-  - DPO loss and preference dataset loader.
-  - Verifier architecture and training entrypoint.
-  - Alignment pipeline orchestrator.
-  - GQA/MoE ablation hooks and attention visualization utilities.
+```bash
+# On TACC Lonestar6 H100:
+sbatch scripts/tacc/submit_speedrun.sh tacc
 
-The current training run focuses on the max‑size scratch LM; as it completes, the same evaluation scripts will populate experiment tables under `experiments/` that can be dropped directly into the final report or portfolio. The alignment and verifier pieces are wired but intentionally left for the next phase of work so they can be developed against a stable base LM + HF baseline stack.
+# Evaluation:
+python scripts/evaluate_and_compare.py \
+    --pretrain-checkpoint /path/to/pretrain_final.pt \
+    --sft-checkpoint /path/to/sft_final.pt \
+    --dpo-checkpoint /path/to/dpo_final.pt
+```
+
+---
+
+## References
+
+- **RMSNorm:** Zhang, B., & Sennrich, R. (2019). Root Mean Square Layer Normalization. *NeurIPS*.
+- **RoPE:** Su, J., et al. (2021). RoFormer: Enhanced Transformer with Rotary Position Embedding. *arXiv:2104.09864*.
+- **SwiGLU:** Shazeer, N. (2020). GLU Variants Improve Transformer. *arXiv:2002.05202*.
+- **Attention Sinks:** Xiao, G., et al. (2023). Efficient Streaming Language Models with Attention Sinks. *arXiv:2309.17453*.
+- **InstructGPT:** Ouyang, L., et al. (2022). Training language models to follow instructions. *NeurIPS*.
+- **DPO:** Rafailov, R., et al. (2023). Direct Preference Optimization. *NeurIPS*.
+- **Verifier:** Lightman, H., et al. (2023). Let's Verify Step by Step. *arXiv:2305.20050*.
+
+---
+
+## License
+
+MIT

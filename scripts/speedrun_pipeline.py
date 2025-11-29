@@ -98,6 +98,11 @@ Pipeline Stages:
         action="store_true",
         help="Skip report generation",
     )
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Overwrite existing reports (default: append timestamp to new reports)",
+    )
 
     args = parser.parse_args()
 
@@ -144,7 +149,18 @@ Pipeline Stages:
         print("\n[Report] Generating report...")
         try:
             from modern_llm.report import generate_report
-            report_path = generate_report(state, config)
+            from datetime import datetime
+
+            report_dir = Path("report")
+            report_path = report_dir / f"{config.run_name}_report.md"
+
+            # Protect existing reports unless --force is set
+            if report_path.exists() and not args.force:
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                report_path = report_dir / f"{config.run_name}_report_{timestamp}.md"
+                print(f"Existing report found, saving to: {report_path}")
+
+            report_path = generate_report(state, config, output_path=report_path)
             print(f"Report saved to: {report_path}")
         except ImportError:
             print("Report module not ready, skipping...")

@@ -1,54 +1,137 @@
 # Scripts Directory
 
-Thin CLI entrypoints for training, evaluation, and orchestration.
+CLI entrypoints for training, evaluation, and orchestration.
+
+---
 
 ## Quick Start
 
-### Run All Phase 1 & 2 Experiments
-
 ```bash
-chmod +x scripts/*.sh
-bash scripts/run_phase1_phase2.sh
+# Smoke test (5 min)
+python scripts/run_pipeline.py --config local-smoke --stage all
+
+# Full local training (RTX 3060)
+python scripts/run_pipeline.py --config local --stage all
+
+# TACC (submit SLURM job)
+sbatch scripts/tacc/submit_speedrun.sh
 ```
 
-### Run Only Evaluations (After Training)
+---
+
+## Main Entry Points
+
+| Script | Description |
+|--------|-------------|
+| `run_pipeline.py` | **Unified entry point** - run any stage or full pipeline |
+| `speedrun_pipeline.py` | Full pipeline orchestrator (called by `speedrun.sh`) |
+
+### `run_pipeline.py` Usage
 
 ```bash
-bash scripts/run_all_evaluations.sh
+# Run individual stages
+python scripts/run_pipeline.py --config local --stage pretrain
+python scripts/run_pipeline.py --config local --stage sft --checkpoint path/to/pretrain.pt
+python scripts/run_pipeline.py --config local --stage dpo --checkpoint path/to/sft.pt
+python scripts/run_pipeline.py --config local --stage verifier
+
+# Run full pipeline
+python scripts/run_pipeline.py --config local --stage all
+
+# Evaluate existing checkpoints
+python scripts/run_pipeline.py --config local --stage eval
 ```
 
-## Individual Scripts
+**Options:**
+- `--config`: Config preset (`local-smoke`, `local`, `tacc-smoke`, `tacc`) or path to JSON
+- `--stage`: Pipeline stage (`pretrain`, `sft`, `dpo`, `verifier`, `eval`, `all`)
+- `--checkpoint`: Resume from checkpoint (required for SFT/DPO stages)
+- `--output-dir`: Custom output directory
+- `--max-steps`: Override training steps
+- `--force`: Overwrite existing results
 
-### Training
+---
 
-- `train_lm_from_config.py` – Train scratch LM from JSON config
-- `experiment_attention_sinks.py` – Long-context stability experiment
+## Standalone Stage Scripts
 
-### Evaluation
+For running individual stages with full control:
 
-- `evaluate_lm_checkpoints.py` – Compute loss/perplexity for all LM checkpoints
-- `generate_from_checkpoints.py` – Generate text samples from LM checkpoints
-- `evaluate_hf_sst2.py` – Evaluate SST-2 checkpoint (accuracy + errors)
-- `evaluate_hf_samsum.py` – Evaluate SAMSum checkpoint (ROUGE)
-- `evaluate_hf_gsm8k.py` – Evaluate GSM8K checkpoint (exact match)
+| Script | Description |
+|--------|-------------|
+| `pretrain.py` | Pretrain language model from random init |
+| `sft.py` | Supervised fine-tuning on instructions |
+| `dpo.py` | Direct preference optimization |
+| `train_verifier.py` | Train answer correctness verifier |
 
-### Orchestration
+---
 
-- `run_phase1_phase2.sh` – Run all Phase 1 & 2 experiments
-- `run_phase1_only.sh` – Run only Phase 1 (scratch LM)
-- `run_phase2_only.sh` – Run only Phase 2 (HF finetuning)
-- `run_all_evaluations.sh` – Run all evaluations (assumes checkpoints exist)
+## Evaluation Scripts
 
-## Module Entry Points
+| Script | Description |
+|--------|-------------|
+| `evaluate_pipeline.py` | Evaluate all pipeline stages on metrics |
+| `evaluate_and_compare.py` | Compare your model vs GPT-2 baseline |
+| `evaluate_lm_checkpoints.py` | Compute perplexity for all checkpoints |
+| `generate_from_checkpoints.py` | Generate text samples from checkpoints |
+| `generate_report.py` | Generate markdown report |
 
-Some scripts use `python -m modern_llm.hf.{module}` format:
+### Comparing Against GPT-2
 
-- `python -m modern_llm.hf.finetune_gpt2_sst2` – GPT-2 on SST-2
-- `python -m modern_llm.hf.finetune_t5_samsum` – T5 on SAMSum
-- `python -m modern_llm.hf.finetune_math_gsm8k` – GPT-2 on GSM8K
-- `python -m modern_llm.hf.prompting_baselines` – Zero/few-shot prompting
+```bash
+python scripts/evaluate_and_compare.py
+```
 
-These can also be run via the orchestration scripts above.
+This generates:
+- `experiments/comparison_log_v2.txt` - Summary
+- `experiments/results/<run>_eval.json` - Detailed metrics
+- `report/<run>_report.md` - Markdown report
 
+---
 
+## Experiments
 
+| Script | Description |
+|--------|-------------|
+| `experiment_attention_sinks.py` | Compare generation stability with/without attention sinks |
+
+---
+
+## Utilities
+
+| Script | Description |
+|--------|-------------|
+| `setup_check.py` | Verify all dependencies are installed |
+
+---
+
+## TACC SLURM Scripts
+
+Located in `scripts/tacc/`:
+
+| Script | Description |
+|--------|-------------|
+| `submit_speedrun.sh` | Full pipeline (pretrain + SFT + DPO + verifier) |
+| `submit_pretrain_only.sh` | Pretrain stage only |
+| `submit_alignment.sh` | Alignment stages only (SFT + DPO + verifier) |
+| `submit_smoke_test.sh` | Quick smoke test |
+| `submit_eval.sh` | Evaluation only |
+
+### Usage
+
+```bash
+cd scripts/tacc
+sbatch submit_speedrun.sh        # Full pipeline
+sbatch submit_pretrain_only.sh   # Then:
+sbatch submit_alignment.sh       # After pretrain completes
+```
+
+---
+
+## Config Presets
+
+| Preset | Hardware | Duration | Description |
+|--------|----------|----------|-------------|
+| `local-smoke` | Any | ~5 min | Quick sanity check |
+| `local` | RTX 3060 | ~24 hours | Full training |
+| `tacc-smoke` | A100/H100 | ~10 min | TACC quick test |
+| `tacc` | H100 | ~48 hours | Full TACC training |
