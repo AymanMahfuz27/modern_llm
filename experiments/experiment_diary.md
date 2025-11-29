@@ -32,7 +32,6 @@
   - Created `scripts/evaluate_lm_checkpoints.py` to compute validation loss/perplexity for all saved checkpoints and write CSV tables.
   - Created `scripts/generate_from_checkpoints.py` to sample text from checkpoints with fixed prompts for qualitative comparison.
   - Designed `configs/lm_max_rtx3060.json` for a max-size model (768-dim, 12-layer, 12-head, 1024 context) pushing RTX 3060 limits with gradient accumulation and BF16.
-  - Created `scripts/train_lm_from_config.py` to train from JSON config files, enabling one-button max-model training.
   - Implemented `scripts/experiment_attention_sinks.py` to train two small models (with/without sinks) and compare generation stability at 3x trained context.
   - Added `notebooks/visualize_lm_results.py` to plot loss/perplexity curves from checkpoint metrics.
 
@@ -42,15 +41,14 @@
   - Completed `hf/prompting_baselines.py` to run zero-/few-shot prompting on SST-2, SAMSum, and GSM8K.
   - Extended `evaluation/metrics.py` to support ROUGE metrics for summarization and F1 for classification.
   - Created evaluation scripts: `evaluate_hf_sst2.py`, `evaluate_hf_samsum.py`, `evaluate_hf_gsm8k.py` with accuracy/ROUGE/EM computation and error logging.
-  - Created orchestration scripts: `run_phase1_phase2.sh`, `run_phase1_only.sh`, `run_phase2_only.sh`, `run_all_evaluations.sh`.
 
 - **Status**: All Phase 1 and Phase 2 baseline experiments are now runnable end-to-end. Ready to execute training runs and collect metrics for the report.
 
 - **Next steps**: Execute the training runs, then move to Phase 3 (SFT → DPO → Verifier alignment pipeline).
 
-### 2025-11-28 — Full pipeline complete on TACC H100
+### 2025-11-28 — Full pipeline complete
 
-- **Hardware**: TACC Lonestar6 H100 (80GB)
+- **Hardware**: H100 GPU (80GB VRAM)
 - **Training**: Full alignment pipeline executed:
   - Pretrain: 30,000 steps on WikiText-103 + TinyStories (~600M tokens)
   - SFT: 5,000 steps on Alpaca 52K
@@ -80,15 +78,14 @@
 - **Cleanup tasks completed**:
   - Deleted orphaned files: `run_alignment_pipeline.py`, `run_ablations.py`
   - Deleted Phase 2 HF artifacts from experiments/ (not relevant to final project)
-  - Consolidated SLURM scripts: renamed `submit_alignment_only.sh` → `submit_alignment.sh`
   - Created unified `scripts/run_pipeline.py` entry point
   - Added overwrite protection to report generation
   - Wrote portfolio-grade README.md with architecture deep-dive
+  - Removed cluster-specific code and configs
 
 - **Final project structure**:
-  - 5 SLURM scripts in `scripts/tacc/`
   - Single Python entry point: `scripts/run_pipeline.py`
+  - Pre-trained checkpoints in `checkpoints/`
   - Protected results in `experiments/results/`, `report/`, `comparison_log_v2.txt`
 
 - **Status**: Project complete. All code paths verified, documentation updated, ready for submission.
-

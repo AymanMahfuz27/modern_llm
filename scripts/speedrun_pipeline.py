@@ -6,8 +6,8 @@ alignment pipeline: Pretrain -> SFT -> DPO -> Verifier -> Evaluate -> Report.
 
 Usage:
     python scripts/speedrun_pipeline.py --config local
-    python scripts/speedrun_pipeline.py --config tacc --checkpoint-dir /scratch/user/modern_llm
-    python scripts/speedrun_pipeline.py --config configs/smoke_test.json
+    python scripts/speedrun_pipeline.py --config gpu --checkpoint-dir /path/to/checkpoints
+    python scripts/speedrun_pipeline.py --config configs/custom.json
 """
 
 import argparse
@@ -32,14 +32,14 @@ Examples:
   # Full local training on RTX 3060
   python scripts/speedrun_pipeline.py --config local
 
-  # TACC smoke test
-  python scripts/speedrun_pipeline.py --config tacc-smoke
+  # GPU smoke test
+  python scripts/speedrun_pipeline.py --config gpu-smoke
 
-  # Full TACC training
-  python scripts/speedrun_pipeline.py --config tacc --checkpoint-dir $SCRATCH/checkpoints
+  # Full GPU training
+  python scripts/speedrun_pipeline.py --config gpu --checkpoint-dir /path/to/checkpoints
 
   # Custom config file
-  python scripts/speedrun_pipeline.py --config configs/tacc_h100.json
+  python scripts/speedrun_pipeline.py --config configs/custom.json
 
 Pipeline Stages:
   1. Pretrain  - Language model pretraining on text corpora
@@ -54,7 +54,7 @@ Pipeline Stages:
         "--config",
         type=str,
         required=True,
-        help="Config preset (local, local-smoke, tacc, tacc-smoke) or path to JSON file",
+        help="Config preset (local, local-smoke, gpu, gpu-smoke) or path to JSON file",
     )
     parser.add_argument(
         "--checkpoint-dir",

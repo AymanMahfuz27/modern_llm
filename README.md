@@ -13,7 +13,7 @@ A from-scratch implementation of a **frontier-style LLM training pipeline**, dem
 | Ours (SFT) | 253M | 34.14 |
 | Ours (DPO) | 253M | 34.32 |
 
-*Trained on TACC Lonestar6 H100. Full results in `experiments/comparison_log_v2.txt`.*
+*Full results in `experiments/comparison_log_v2.txt`.*
 
 ---
 
@@ -133,13 +133,18 @@ WikiText-103 + TinyStories (600M tokens)
 
 ```
 modern_llm/
-├── configs/                        # Hardware-specific JSON configs
-│   ├── lm_max_rtx3060.json         # Max model for RTX 3060
-│   └── *.json                      # Other hardware presets
+├── checkpoints/                    # Trained model checkpoints
+│   ├── pretrain_best.pt            # Base language model
+│   ├── sft_final.pt                # Instruction-tuned
+│   ├── dpo_final.pt                # Preference-aligned
+│   └── verifier_final.pt           # Answer scoring model
+│
+├── configs/                        # Training configs
+│   └── lm_max_rtx3060.json         # Max model for RTX 3060
 │
 ├── experiments/
 │   ├── results/                    # Evaluation JSONs/CSVs
-│   ├── runs/                       # Local checkpoints
+│   ├── runs/                       # Training checkpoints
 │   └── comparison_log_v2.txt       # Key perplexity results
 │
 ├── report/                         # Generated markdown reports
@@ -151,13 +156,7 @@ modern_llm/
 │   ├── pretrain.py                 # Standalone pretraining
 │   ├── sft.py                      # Standalone SFT
 │   ├── dpo.py                      # Standalone DPO
-│   ├── train_verifier.py           # Verifier training
-│   └── tacc/                       # SLURM scripts
-│       ├── submit_speedrun.sh      # Full pipeline
-│       ├── submit_pretrain_only.sh # Pretrain only
-│       ├── submit_alignment.sh     # SFT + DPO + Verifier
-│       ├── submit_smoke_test.sh    # Quick test
-│       └── submit_eval.sh          # Evaluation only
+│   └── train_verifier.py           # Verifier training
 │
 ├── src/modern_llm/
 │   ├── models/
@@ -220,16 +219,26 @@ python -c "from modern_llm.models import ModernDecoderLM; print('OK')"
 
 # Smoke test (5 minutes, CPU/GPU)
 python scripts/run_pipeline.py --config local-smoke --stage all
-
-# Or use the one-liner
-bash speedrun.sh local-smoke
 ```
 
 ---
 
-## Running Experiments
+## Using Pre-trained Checkpoints
 
-### Local (RTX 3060 / similar)
+```bash
+# Verify checkpoints load correctly
+python scripts/verify_checkpoints.py
+
+# Run evaluation on existing checkpoints
+python scripts/evaluate_and_compare.py
+
+# Run GSM8K math benchmark with verifier
+python scripts/benchmark_gsm8k.py
+```
+
+---
+
+## Running Training (from scratch)
 
 ```bash
 # Full pipeline (~24 hours on RTX 3060)
@@ -237,22 +246,8 @@ python scripts/run_pipeline.py --config local --stage all
 
 # Individual stages
 python scripts/run_pipeline.py --config local --stage pretrain
-python scripts/run_pipeline.py --config local --stage sft --checkpoint experiments/runs/pretrain_final.pt
-python scripts/run_pipeline.py --config local --stage dpo --checkpoint experiments/runs/sft_final.pt
-```
-
-### TACC (Lonestar6)
-
-```bash
-cd scripts/tacc
-
-# Full pipeline (H100, ~48 hours)
-sbatch submit_speedrun.sh
-
-# Or run stages separately
-sbatch submit_pretrain_only.sh
-sbatch submit_alignment.sh  # After pretrain completes
-sbatch submit_eval.sh       # After alignment completes
+python scripts/run_pipeline.py --config local --stage sft --checkpoint checkpoints/pretrain_best.pt
+python scripts/run_pipeline.py --config local --stage dpo --checkpoint checkpoints/sft_final.pt
 ```
 
 ### Config Presets
@@ -261,24 +256,19 @@ sbatch submit_eval.sh       # After alignment completes
 |--------|----------|----------|-------------|
 | `local-smoke` | Any | ~5 min | Quick sanity check |
 | `local` | RTX 3060 | ~24 hours | Full training |
-| `tacc-smoke` | A100/H100 | ~10 min | TACC quick test |
-| `tacc` | H100 | ~48 hours | Full TACC training |
 
 ---
 
-## Reproducing Paper Results
+## Reproducing Results
 
-The results in `experiments/comparison_log_v2.txt` were obtained with:
+The results in `experiments/comparison_log_v2.txt` can be reproduced with:
 
 ```bash
-# On TACC Lonestar6 H100:
-sbatch scripts/tacc/submit_speedrun.sh tacc
+# Evaluate pre-trained checkpoints against GPT-2
+python scripts/evaluate_and_compare.py
 
-# Evaluation:
-python scripts/evaluate_and_compare.py \
-    --pretrain-checkpoint /path/to/pretrain_final.pt \
-    --sft-checkpoint /path/to/sft_final.pt \
-    --dpo-checkpoint /path/to/dpo_final.pt
+# Or run full training from scratch
+python scripts/run_pipeline.py --config local --stage all
 ```
 
 ---

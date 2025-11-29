@@ -1,6 +1,6 @@
 """Hardware configuration for multi-device training.
 
-Supports local (RTX 3060) and TACC (A100/H100) environments with
+Supports local (RTX 3060) and high-end GPU (A100/H100) environments with
 auto-detection and preset configurations.
 """
 
@@ -122,7 +122,7 @@ LOCAL_RTX3060 = HardwareConfig(
     is_distributed=False,
 )
 
-TACC_A100 = HardwareConfig(
+GPU_A100 = HardwareConfig(
     device="cuda",
     num_gpus=1,
     gpu_memory_gb=80,
@@ -131,7 +131,7 @@ TACC_A100 = HardwareConfig(
     is_distributed=False,
 )
 
-TACC_H100 = HardwareConfig(
+GPU_H100 = HardwareConfig(
     device="cuda",
     num_gpus=1,
     gpu_memory_gb=80,
@@ -149,8 +149,8 @@ def get_hardware_preset(name: str) -> HardwareConfig:
     presets = {
         "local": LOCAL_RTX3060,
         "rtx3060": LOCAL_RTX3060,
-        "a100": TACC_A100,
-        "h100": TACC_H100,
+        "a100": GPU_A100,
+        "h100": GPU_H100,
         "auto": HardwareConfig.from_env(),
     }
     if name not in presets:

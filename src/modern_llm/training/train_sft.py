@@ -144,7 +144,7 @@ def main() -> None:
         "--config",
         type=str,
         default=None,
-        help="Pipeline config preset (local, tacc, etc.) or path to JSON",
+        help="Pipeline config preset (local, gpu, etc.) or path to JSON",
     )
     parser.add_argument(
         "--dataset",

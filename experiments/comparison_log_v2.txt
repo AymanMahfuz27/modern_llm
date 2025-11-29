@@ -6,9 +6,9 @@ Timestamp: 2025-11-28T17:45:52.859962
 Device: cuda
 
 CHECKPOINTS:
-  pretrain: /home1/09999/aymanmahfuz/modern_llm/checkpoints/pretrain_best.pt
-  sft: /home1/09999/aymanmahfuz/modern_llm/checkpoints/sft_final.pt
-  dpo: /home1/09999/aymanmahfuz/modern_llm/checkpoints/dpo_final.pt
+  pretrain: checkpoints/pretrain_best.pt
+  sft: checkpoints/sft_final.pt
+  dpo: checkpoints/dpo_final.pt
 
 ============================================================
 PERPLEXITY RESULTS (lower is better)

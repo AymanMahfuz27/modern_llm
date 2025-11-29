@@ -3,7 +3,7 @@
 
 Usage:
     python scripts/pretrain.py --config local
-    python scripts/pretrain.py --config configs/tacc_a100.json
+    python scripts/pretrain.py --config configs/custom.json
 
 This trains YOUR scratch model from random initialization on language modeling.
 """
@@ -24,7 +24,7 @@ def main() -> None:
         "--config",
         type=str,
         required=True,
-        help="Config preset (local, tacc, etc.) or path to JSON file",
+        help="Config preset (local, gpu, etc.) or path to JSON file",
     )
     parser.add_argument(
         "--checkpoint-dir",

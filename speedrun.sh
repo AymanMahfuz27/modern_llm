@@ -4,8 +4,8 @@
 # Usage:
 #   bash speedrun.sh local        # Full pipeline on RTX 3060 (small config)
 #   bash speedrun.sh local-smoke  # Quick smoke test locally
-#   bash speedrun.sh tacc         # Full pipeline on TACC (large config)
-#   bash speedrun.sh tacc-smoke   # Short smoke test on TACC
+#   bash speedrun.sh gpu          # Full pipeline on high-end GPU (large config)
+#   bash speedrun.sh gpu-smoke    # Short smoke test on GPU
 #   bash speedrun.sh help         # Show this help
 #
 # Pipeline Stages:
@@ -51,8 +51,8 @@ USAGE:
 MODES:
     local         Full pipeline on local GPU (RTX 3060, ~12GB VRAM)
     local-smoke   Quick smoke test locally (~5 minutes)
-    tacc          Full pipeline on TACC HPC (A100/H100)
-    tacc-smoke    Quick smoke test on TACC (~10 minutes)
+    gpu           Full pipeline on high-end GPU (A100/H100)
+    gpu-smoke     Quick smoke test on GPU (~10 minutes)
     help          Show this help message
 
 OPTIONS:
@@ -70,13 +70,7 @@ EXAMPLES:
     bash speedrun.sh local
 
     # Use existing pretrain checkpoint
-    bash speedrun.sh local --skip-pretrain --checkpoint experiments/runs/pretrain/final.pt
-
-    # TACC smoke test (submit as SLURM job)
-    sbatch scripts/tacc/submit_speedrun.sh tacc-smoke
-
-    # Full TACC training
-    sbatch scripts/tacc/submit_speedrun.sh tacc
+    bash speedrun.sh local --skip-pretrain --checkpoint checkpoints/pretrain_best.pt
 
 OUTPUT:
     experiments/runs/<run_name>/
@@ -134,11 +128,11 @@ run_pipeline() {
         local-smoke)
             config="local-smoke"
             ;;
-        tacc)
-            config="tacc"
+        gpu)
+            config="gpu"
             ;;
-        tacc-smoke)
-            config="tacc-smoke"
+        gpu-smoke)
+            config="gpu-smoke"
             ;;
         *)
             echo -e "${RED}Unknown mode: ${mode}${NC}"
@@ -168,7 +162,7 @@ main() {
             print_help
             exit 0
             ;;
-        local|local-smoke|tacc|tacc-smoke)
+        local|local-smoke|gpu|gpu-smoke)
             print_header
             setup_environment
             run_pipeline "$mode" "$@"
@@ -182,6 +176,3 @@ main() {
 }
 
 main "$@"
-
-
-

@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Unified pipeline entry point for Modern LLM.
 
-Single command to run any stage or the full pipeline locally or on TACC.
-Mirrors the SLURM scripts but runs in the current Python environment.
+Single command to run any stage or the full pipeline.
+Runs in the current Python environment.
 
 Usage:
     # Smoke test (5 minutes)
@@ -14,8 +14,8 @@ Usage:
     # Resume SFT from existing pretrain checkpoint
     python scripts/run_pipeline.py --config local --stage sft --checkpoint experiments/runs/pretrain_final.pt
 
-    # Full TACC pipeline
-    python scripts/run_pipeline.py --config tacc --stage all --output-dir /scratch/user/checkpoints
+    # Full GPU pipeline
+    python scripts/run_pipeline.py --config gpu --stage all --output-dir /path/to/checkpoints
 
     # Run with custom config file
     python scripts/run_pipeline.py --config configs/custom.json --stage all
@@ -197,14 +197,14 @@ Examples:
       --checkpoint experiments/runs/local-full/pretrain_final.pt
 
   # Full pipeline with custom output directory
-  python scripts/run_pipeline.py --config tacc --stage all \\
-      --output-dir /scratch/user/checkpoints
+  python scripts/run_pipeline.py --config gpu --stage all \\
+      --output-dir /path/to/checkpoints
 
 Config Presets:
   local-smoke  - Quick test (~5 min), tiny model
   local        - Full training for RTX 3060 (~24 hours)
-  tacc-smoke   - Quick test on TACC (~10 min)
-  tacc         - Full training on TACC H100 (~48 hours)
+  gpu-smoke    - Quick GPU test (~10 min)
+  gpu          - Full high-end GPU training (~48 hours)
 
 Stages:
   pretrain  - Pretrain language model on text corpora
@@ -219,7 +219,7 @@ Stages:
         "--config",
         type=str,
         required=True,
-        help="Config preset (local-smoke, local, tacc-smoke, tacc) or path to JSON file",
+        help="Config preset (local-smoke, local, gpu-smoke, gpu) or path to JSON file",
     )
     parser.add_argument(
         "--stage",

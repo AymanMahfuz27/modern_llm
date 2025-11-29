@@ -199,7 +199,7 @@ class AlignmentPipeline:
         from modern_llm.training.train_lm import run_training
 
         train_config = self.config.get_pretrain_config()
-        # Override output_dir to use checkpoint_dir (for TACC $WORK quota)
+        # Override output_dir to use checkpoint_dir
         train_config.output_dir = self.checkpoint_dir / train_config.run_name
         train_config.output_dir.mkdir(parents=True, exist_ok=True)
         model_config = self.config.get_model_config()
@@ -217,7 +217,7 @@ class AlignmentPipeline:
     def _run_sft(self) -> Path:
         """Run SFT stage."""
         train_config = self.config.get_sft_config()
-        # Override output_dir to use checkpoint_dir (for TACC $WORK quota)
+        # Override output_dir to use checkpoint_dir
         train_config.output_dir = self.checkpoint_dir / train_config.run_name
         train_config.output_dir.mkdir(parents=True, exist_ok=True)
         dataset_config = InstructionDatasetConfig(
@@ -235,7 +235,7 @@ class AlignmentPipeline:
     def _run_dpo(self) -> Path:
         """Run DPO stage."""
         train_config = self.config.get_dpo_config()
-        # Override output_dir to use checkpoint_dir (for TACC $WORK quota)
+        # Override output_dir to use checkpoint_dir
         train_config.output_dir = self.checkpoint_dir / train_config.run_name
         train_config.output_dir.mkdir(parents=True, exist_ok=True)
         dpo_config = DPOConfig(
@@ -257,7 +257,7 @@ class AlignmentPipeline:
     def _run_verifier(self) -> Path:
         """Run verifier training stage."""
         train_config = self.config.get_verifier_config()
-        # Override output_dir to use checkpoint_dir (for TACC $WORK quota)
+        # Override output_dir to use checkpoint_dir
         train_config.output_dir = self.checkpoint_dir / train_config.run_name
         train_config.output_dir.mkdir(parents=True, exist_ok=True)
         verifier_config = VerifierConfig(

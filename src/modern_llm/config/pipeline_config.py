@@ -268,8 +268,8 @@ def local_full_config() -> PipelineConfig:
     )
 
 
-def tacc_smoke_config() -> PipelineConfig:
-    """Minimal config for TACC smoke testing."""
+def gpu_smoke_config() -> PipelineConfig:
+    """Minimal config for GPU smoke testing."""
     return PipelineConfig(
         d_model=256,
         n_layers=4,
@@ -282,61 +282,60 @@ def tacc_smoke_config() -> PipelineConfig:
         sft_max_steps=50,
         dpo_max_steps=50,
         verifier_max_steps=50,
-        run_name="tacc-smoke",
+        run_name="gpu-smoke",
     )
 
 
-def tacc_full_config() -> PipelineConfig:
-    """Full config for TACC A100/H100 training.
+def gpu_full_config() -> PipelineConfig:
+    """Full config for high-end GPU training (A100/H100).
     
-    Optimized to complete within 48-hour job limit with quality data:
+    Optimized for quality with large data:
     - WikiText-103 (100M tokens) + TinyStories (~500M tokens) for pretraining
-    - 60K pretrain steps (3x more than before) 
+    - 60K pretrain steps for thorough training
     - seq_len 1024 for fast attention
     - Flash Attention enabled (attention_sinks=False)
-    - Model stays at ~200M params (fits 3060 inference)
+    - Model at ~253M params
     
-    Estimated time at ~2s/step:
+    Estimated time on H100:
     - Pretrain: 60K steps * 2s = 33h
     - SFT: 5K steps = 3h  
     - DPO: 3K steps = 2h
     - Verifier: 3K steps = 2h
-    - Total: ~40h (fits in 48h limit)
+    - Total: ~40h
     """
     return PipelineConfig(
         d_model=1024,
-        n_layers=12,  # 12 layers ~200M params (fits 3060 inference)
+        n_layers=12,
         n_heads=16,
         ffn_hidden_size=4096,
-        max_seq_len=1024,  # 1024 vs 2048 = ~4x faster attention
+        max_seq_len=1024,
         use_attention_sinks=False,  # Disable to enable Flash Attention
         hardware_preset="auto",
         data_preset="large",
-        # Use multiple datasets for better coverage
         pretrain_datasets=[
-            "wikitext-103-raw-v1",  # 100M tokens, high quality
-            "roneneldan/TinyStories",  # ~500M tokens, good for coherence
+            "wikitext-103-raw-v1",
+            "roneneldan/TinyStories",
         ],
-        pretrain_max_steps=60000,  # 3x more training
+        pretrain_max_steps=60000,
         pretrain_batch_size=128,
-        pretrain_micro_batch_size=8,  # 16 accum steps (was 64 with micro=2)
-        sft_max_steps=5000,  # More SFT
-        dpo_max_steps=3000,  # More DPO
-        verifier_max_steps=3000,  # More verifier
-        run_name="tacc-full",
+        pretrain_micro_batch_size=8,
+        sft_max_steps=5000,
+        dpo_max_steps=3000,
+        verifier_max_steps=3000,
+        run_name="gpu-full",
     )
 
 
 def get_pipeline_preset(name: str) -> PipelineConfig:
     """Get a pipeline preset by name.
 
-    Pre: name is one of "local-smoke", "local", "tacc-smoke", "tacc".
+    Pre: name is one of "local-smoke", "local", "gpu-smoke", "gpu".
     """
     presets = {
         "local-smoke": local_smoke_config,
         "local": local_full_config,
-        "tacc-smoke": tacc_smoke_config,
-        "tacc": tacc_full_config,
+        "gpu-smoke": gpu_smoke_config,
+        "gpu": gpu_full_config,
     }
     if name not in presets:
         raise ValueError(f"Unknown pipeline preset: {name}. Choose from {list(presets.keys())}")

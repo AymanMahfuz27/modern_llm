@@ -123,7 +123,7 @@ def main():
     }
     
     # Load config and tokenizer
-    config = get_pipeline_preset("tacc")
+    config = get_pipeline_preset("local")
     tokenizer = AutoTokenizer.from_pretrained("gpt2")
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
@@ -237,7 +237,7 @@ def main():
     results_dir = project_dir / "experiments" / "results"
     results_dir.mkdir(parents=True, exist_ok=True)
     
-    results_file = results_dir / "tacc-full-v2_eval.json"
+    results_file = results_dir / "full_eval.json"
     with open(results_file, "w") as f:
         json.dump(results, f, indent=2)
     print(f"\nResults saved to {results_file}")
@@ -279,7 +279,7 @@ def main():
     print(f"Comparison log saved to {log_file}")
     
     # Generate markdown report
-    report_file = project_dir / "report" / "tacc-full-v2_report.md"
+    report_file = project_dir / "report" / "full_report.md"
     with open(report_file, "w") as f:
         f.write("# Modern LLM Training Report (v2)\n\n")
         f.write(f"**Generated:** {results['timestamp']}\n\n")
