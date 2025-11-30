@@ -1,0 +1,39 @@
+==============================================
+Modern LLM Pipeline - Starting
+==============================================
+Job ID: 2777249
+Node: c318-002
+Time: Sat Nov 29 17:47:15 CST 2025
+Project Dir: /home1/09999/aymanmahfuz/modern_llm
+Work Dir: /work/09999/aymanmahfuz/ls6/modern_llm_runs
+
+GPU Info:
+name, memory.total [MiB], driver_version
+NVIDIA H100 PCIe, 81559 MiB, 570.195.03
+NVIDIA H100 PCIe, 81559 MiB, 570.195.03
+
+==============================================
+Running Full Pipeline (Pretrain -> SFT -> DPO -> Verifier)
+==============================================
+Using config preset: gpu
+
+============================================================
+Modern LLM Pipeline
+============================================================
+Config:       gpu
+Run name:     gpu-full
+Stage:        all
+Output dir:   /work/09999/aymanmahfuz/ls6/modern_llm_runs/checkpoints
+Model:        d=1024, L=12, H=16
+Start time:   2025-11-29 17:47:19
+============================================================
+
+Loading 3 datasets: ['wikitext-2-raw-v1', 'wikitext-103-raw-v1', 'roneneldan/TinyStories']
+Loading dataset: wikitext-2-raw-v1
+  Loaded 36718 samples from wikitext-2-raw-v1
+Loading dataset: wikitext-103-raw-v1
+  Loaded 1801350 samples from wikitext-103-raw-v1
+Loading dataset: roneneldan/TinyStories
+  Loaded 2119719 samples from roneneldan/TinyStories
+Combined dataset: 3957787 total samples
+Model: 252.9M parameters

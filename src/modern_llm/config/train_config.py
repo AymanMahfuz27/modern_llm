@@ -36,7 +36,7 @@ class TrainingConfig:
     seed: Optional[int] = 42
     mixed_precision: MixedPrecisionDtype = "bf16"
     gradient_checkpointing: bool = True
-    compile_model: bool = False
+    compile_model: bool = True  # Significant speedup on modern GPUs
 
     def __post_init__(self) -> None:
         self._validate_positive_int("batch_size", self.batch_size)

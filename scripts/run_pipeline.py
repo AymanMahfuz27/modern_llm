@@ -25,6 +25,7 @@ import argparse
 import sys
 from datetime import datetime
 from pathlib import Path
+from typing import Optional
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
@@ -164,7 +165,7 @@ def run_eval(config: PipelineConfig, output_dir: Path) -> None:
         print(f"Evaluation module not available: {e}")
 
 
-def find_latest_checkpoint(output_dir: Path, stage: str) -> Path | None:
+def find_latest_checkpoint(output_dir: Path, stage: str) -> Optional[Path]:
     """Find the latest checkpoint for a given stage."""
     patterns = {
         "pretrain": ["*pretrain*final*.pt", "*pretrain*best*.pt", "*pretrain*step*.pt"],

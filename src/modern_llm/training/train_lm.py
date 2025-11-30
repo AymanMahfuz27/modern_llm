@@ -193,11 +193,16 @@ def run_training(
         batch_size=train_config.micro_batch_size,
         shuffle=True,
         drop_last=True,
+        num_workers=4,
+        pin_memory=True,
+        persistent_workers=True,
     )
     eval_loader = DataLoader(
         eval_dataset,
         batch_size=train_config.micro_batch_size,
         shuffle=False,
+        num_workers=2,
+        pin_memory=True,
     )
 
     model = ModernDecoderLM(model_config)

@@ -130,7 +130,7 @@ sbatch scripts/tacc_pipeline.slurm
 
 **Local smoke test**:
 ```bash
-python scripts/speedrun_pipeline.py --config local-smoke
+python scripts/run_pipeline.py --config local-smoke --stage all
 ```
 
 **Dataset verification**:

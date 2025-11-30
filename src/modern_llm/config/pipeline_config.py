@@ -1,7 +1,7 @@
 """Unified pipeline configuration for end-to-end training.
 
 Combines model, training, hardware, and data configs into a single
-JSON-serializable structure for speedrun.sh orchestration.
+JSON-serializable structure for run_pipeline.py orchestration.
 """
 
 from __future__ import annotations
@@ -313,12 +313,13 @@ def gpu_full_config() -> PipelineConfig:
         hardware_preset="auto",
         data_preset="large",
         pretrain_datasets=[
+            "wikitext-2-raw-v1",
             "wikitext-103-raw-v1",
             "roneneldan/TinyStories",
         ],
         pretrain_max_steps=40000,
         pretrain_batch_size=128,
-        pretrain_micro_batch_size=8,
+        pretrain_micro_batch_size=32,  # H100 can handle much larger
         sft_max_steps=5000,
         dpo_max_steps=3000,
         verifier_max_steps=3000,

@@ -151,7 +151,7 @@ modern_llm/
 │
 ├── scripts/
 │   ├── run_pipeline.py             # Unified Python entry point
-│   ├── speedrun_pipeline.py        # Full pipeline orchestrator
+│   ├── run_pipeline.py             # Full pipeline orchestrator (stages or full)
 │   ├── evaluate_and_compare.py     # GPT-2 comparison script
 │   ├── pretrain.py                 # Standalone pretraining
 │   ├── sft.py                      # Standalone SFT
@@ -197,7 +197,7 @@ modern_llm/
 │       └── logging_utils.py        # Logging setup
 │
 ├── tests/                          # Unit tests
-├── speedrun.sh                     # One-button entry point
+├── scripts/run_pipeline.py         # One-button entry point
 ├── requirements.txt                # Dependencies
 └── README.md                       # This file
 ```

@@ -7,7 +7,7 @@ What worked on local 3060 and what changes for TACC H100.
 ## Verified Working Locally (RTX 3060)
 
 ### Full Pipeline Smoke Test ✅
-- **Command**: `python scripts/speedrun_pipeline.py --config local-smoke`
+- **Command**: `python scripts/run_pipeline.py --config local-smoke --stage all`
 - **Stages completed**:
   - Pretrain: 100 steps (WikiText-2, ~6 min)
   - SFT: 50 steps (Alpaca, ~12 sec)
@@ -39,7 +39,15 @@ What worked on local 3060 and what changes for TACC H100.
 
 
 ### 0. Update heading for tacc_pipeline.slurm to look like this instead
-
+#!/bin/bash
+#SBATCH -J modern-llm-pretrain
+#SBATCH -o logs/%x_%j.out
+#SBATCH -e logs/%x_%j.err
+#SBATCH -p gpu-h100
+#SBATCH -N 1
+#SBATCH -n 1
+#SBATCH -t 24:00:00
+#SBATCH -A ASC25078
 
 ### 1. Checkpoint Directory
 **Local**:
@@ -57,12 +65,12 @@ The SLURM script (`scripts/tacc_pipeline.slurm`) already handles this.
 ### 2. Config Preset
 **Local**:
 ```bash
-python scripts/speedrun_pipeline.py --config local-smoke
+python scripts/run_pipeline.py --config local-smoke --stage all
 ```
 
 **TACC**:
 ```bash
-python scripts/speedrun_pipeline.py --config gpu
+python scripts/run_pipeline.py --config gpu --stage all
 ```
 
 Key differences in `gpu` config:

@@ -24,7 +24,7 @@ python scripts/benchmark_gsm8k.py
 | Script | Description |
 |--------|-------------|
 | `run_pipeline.py` | **Unified entry point** - run any stage or full pipeline |
-| `speedrun_pipeline.py` | Full pipeline orchestrator (called by `speedrun.sh`) |
+| `run_pipeline.py` | Full pipeline orchestrator (supports individual stages or full run) |
 
 ### `run_pipeline.py` Usage
 
