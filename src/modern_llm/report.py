@@ -76,9 +76,9 @@ def generate_report(
         report_path = output_path
         report_path.parent.mkdir(parents=True, exist_ok=True)
     else:
-    output_dir = output_dir or Path("report")
-    output_dir.mkdir(parents=True, exist_ok=True)
-    report_path = output_dir / f"{config.run_name}_report.md"
+        output_dir = output_dir or Path("report")
+        output_dir.mkdir(parents=True, exist_ok=True)
+        report_path = output_dir / f"{config.run_name}_report.md"
 
     # Load evaluation results if available
     eval_results = None

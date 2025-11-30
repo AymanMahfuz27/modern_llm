@@ -28,7 +28,14 @@ from pathlib import Path
 
 import torch
 
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
+# Ensure both the project root and `src` are on sys.path so that we can import
+# local packages (e.g., `modern_llm`) and the `scripts` package when this file
+# is executed as a script (python scripts/.../evaluate_tasks.py) from any CWD.
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+SRC_ROOT = PROJECT_ROOT / "src"
+for p in (str(PROJECT_ROOT), str(SRC_ROOT)):
+    if p not in sys.path:
+        sys.path.insert(0, p)
 
 
 def find_stage_checkpoints(run_dir: Path) -> dict[str, Path]:
@@ -37,16 +44,19 @@ def find_stage_checkpoints(run_dir: Path) -> dict[str, Path]:
     checkpoints = {}
     
     for stage in stages:
-        # Look for *_final.pt or latest checkpoint
+        # Look for *_<stage>_final.pt or checkpoints under a stage-specific
+        # subdirectory. We search recursively so that layouts like:
+        #   <run_root>/<run_name>-<stage>/<run_name>-<stage>_final.pt
+        # are discovered correctly.
         patterns = [
-            f"*-{stage}_final.pt",
-            f"*-{stage}/checkpoint_*.pt",
+            f"*-{stage}_final.pt",          # e.g., gpu-full-dpo_final.pt
+            f"*-{stage}/checkpoint_*.pt",   # e.g., gpu-full-dpo/checkpoint_*.pt
             f"{stage}_final.pt",
         ]
         for pattern in patterns:
-            matches = list(run_dir.glob(pattern))
+            matches = sorted(run_dir.rglob(pattern))
             if matches:
-                checkpoints[stage] = sorted(matches)[-1]  # Latest
+                checkpoints[stage] = matches[-1]  # latest match
                 break
     
     return checkpoints
@@ -60,6 +70,8 @@ def evaluate_single_model(
     max_gsm8k: int = 50,
 ) -> dict:
     """Evaluate a single model on all tasks."""
+    # Import task-specific evaluators from the local scripts package.
+    # The project root was added to sys.path above so `scripts` is importable.
     from scripts.evaluation.eval_sst2 import (
         evaluate_sst2,
         load_hf_model,
