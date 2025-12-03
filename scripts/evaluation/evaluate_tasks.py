@@ -39,8 +39,11 @@ for p in (str(PROJECT_ROOT), str(SRC_ROOT)):
 
 
 def find_stage_checkpoints(run_dir: Path) -> dict[str, Path]:
-    """Find checkpoints for each training stage in a run directory."""
-    stages = ["pretrain", "sft", "dpo", "verifier"]
+    """Find checkpoints for each training stage in a run directory.
+    
+    Note: Excludes verifier since it's a classification model, not an LM.
+    """
+    stages = ["pretrain", "sft", "dpo"]  # Verifier uses different model architecture
     checkpoints = {}
     
     for stage in stages:

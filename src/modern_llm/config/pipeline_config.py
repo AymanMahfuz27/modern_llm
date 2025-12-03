@@ -62,6 +62,7 @@ class PipelineConfig:
     sft_batch_size: int = 32
     sft_micro_batch_size: int = 2
     sft_dataset: str = "tatsu-lab/alpaca"
+    sft_datasets: Optional[List[str]] = None  # Multiple SFT datasets (overrides sft_dataset)
 
     # DPO
     dpo_max_steps: int = 2000
@@ -289,19 +290,18 @@ def gpu_smoke_config() -> PipelineConfig:
 def gpu_full_config() -> PipelineConfig:
     """Full config for high-end GPU training (A100/H100).
     
-    Optimized for quality with fast training:
-    - WikiText-103 (100M tokens) + TinyStories (~500M tokens) for pretraining
-    - 40K pretrain steps (avoids slowdown observed after 31K on H100)
-    - seq_len 1024 for fast attention
-    - Flash Attention enabled (attention_sinks=False)
-    - Model at ~253M params
+    Optimized for quality with diverse data:
+    - Wikipedia + OpenWebText + WikiText-103 for factual/general knowledge
+    - TinyStories downsampled (100K samples) to avoid story-mode collapse
+    - 80K pretrain steps for thorough training
+    - Multiple SFT datasets for diverse instruction following
     
     Estimated time on H100:
-    - Pretrain: 40K steps * 1.5s = 17h
-    - SFT: 5K steps = 3h  
+    - Pretrain: 80K steps * 1.5s = 33h
+    - SFT: 10K steps = 5h  
     - DPO: 3K steps = 2h
     - Verifier: 3K steps = 2h
-    - Total: ~25h (well under 48h limit)
+    - Total: ~42h (under 48h limit)
     """
     return PipelineConfig(
         d_model=1024,
@@ -313,19 +313,25 @@ def gpu_full_config() -> PipelineConfig:
         hardware_preset="auto",
         data_preset="large",
         pretrain_datasets=[
-            "wikitext-2-raw-v1",
             "wikitext-103-raw-v1",
-            "roneneldan/TinyStories",
+            "openwebtext",
+            "wikipedia",
+            "roneneldan/TinyStories:100000",  # Downsample to 100K
         ],
-        pretrain_max_steps=40000,
+        pretrain_max_steps=80000,
         pretrain_batch_size=128,
         pretrain_micro_batch_size=32,  # H100 can handle much larger
-        sft_max_steps=5000,
+        sft_max_steps=10000,
+        sft_datasets=[
+            "tatsu-lab/alpaca",
+            "databricks/databricks-dolly-15k",
+            "Open-Orca/OpenOrca:50000",  # Sample 50K from larger dataset
+        ],
         dpo_max_steps=3000,
         verifier_max_steps=3000,
         run_name="gpu-full",
-        eval_every=1000,
-        save_every=5000,
+        eval_every=20000,  # Eval only 4 times during 80K pretrain (was 2000)
+        save_every=20000,
     )
 
 

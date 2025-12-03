@@ -1,0 +1,53 @@
+[
+  {
+    "model": "gpt2",
+    "is_hf_baseline": true,
+    "timestamp": "2025-12-03T13:04:03.806179",
+    "sst2_accuracy": 0.56
+  },
+  {
+    "model": "distilgpt2",
+    "is_hf_baseline": true,
+    "timestamp": "2025-12-03T13:04:24.683414",
+    "sst2_accuracy": 0.56
+  },
+  {
+    "model": "gpu-full-pretrain_final",
+    "is_hf_baseline": false,
+    "timestamp": "2025-12-03T13:04:48.777018",
+    "sst2_accuracy": 0.495,
+    "gsm8k_em": 0.0,
+    "gsm8k_errors": {
+      "extraction": 2,
+      "arithmetic": 1,
+      "reasoning": 47
+    },
+    "stage": "pretrain"
+  },
+  {
+    "model": "gpu-full-sft_final",
+    "is_hf_baseline": false,
+    "timestamp": "2025-12-03T13:07:09.420082",
+    "sst2_accuracy": 0.535,
+    "gsm8k_em": 0.0,
+    "gsm8k_errors": {
+      "extraction": 2,
+      "arithmetic": 1,
+      "reasoning": 47
+    },
+    "stage": "sft"
+  },
+  {
+    "model": "gpu-full-dpo_final",
+    "is_hf_baseline": false,
+    "timestamp": "2025-12-03T13:09:06.159323",
+    "sst2_accuracy": 0.495,
+    "gsm8k_em": 0.0,
+    "gsm8k_errors": {
+      "extraction": 6,
+      "arithmetic": 0,
+      "reasoning": 44
+    },
+    "stage": "dpo"
+  }
+]

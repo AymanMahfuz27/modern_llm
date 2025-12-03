@@ -14,11 +14,12 @@ from transformers import PreTrainedTokenizerBase
 
 
 # Dataset name -> (hf_name, hf_config, text_field) mapping
-# Note: openwebtext and bookcorpus removed - use legacy loading scripts not supported
 DATASET_REGISTRY = {
     "wikitext-2-raw-v1": ("wikitext", "wikitext-2-raw-v1", "text"),
     "wikitext-103-raw-v1": ("wikitext", "wikitext-103-raw-v1", "text"),
     "roneneldan/TinyStories": ("roneneldan/TinyStories", None, "text"),
+    "openwebtext": ("Skylion007/openwebtext", None, "text"),
+    "wikipedia": ("wikimedia/wikipedia", "20231101.en", "text"),
 }
 
 
@@ -117,6 +118,25 @@ def load_causal_lm_dataset(
     return tokenized
 
 
+def _parse_dataset_spec(spec: str) -> tuple:
+    """Parse dataset spec like 'name:100000' into (name, max_samples).
+    
+    Examples:
+        'wikitext-103-raw-v1' -> ('wikitext-103-raw-v1', None)
+        'roneneldan/TinyStories:100000' -> ('roneneldan/TinyStories', 100000)
+    """
+    if ":" in spec:
+        parts = spec.rsplit(":", 1)
+        name = parts[0]
+        try:
+            max_samples = int(parts[1])
+        except ValueError:
+            # Not a number, treat whole thing as name
+            return spec, None
+        return name, max_samples
+    return spec, None
+
+
 def load_multi_dataset(
     dataset_names: List[str],
     tokenizer: PreTrainedTokenizerBase,
@@ -127,21 +147,23 @@ def load_multi_dataset(
     """Load and concatenate multiple datasets for pretraining.
     
     Pre: dataset_names are keys in DATASET_REGISTRY or valid HF dataset paths.
+         Supports 'name:N' syntax to cap individual datasets (e.g. 'TinyStories:100000').
     Post: Returns concatenated tokenized dataset.
     
     Args:
-        dataset_names: List of dataset identifiers
+        dataset_names: List of dataset identifiers (optionally with :N suffix)
         tokenizer: Tokenizer to use
         split: Dataset split (train/validation)
         max_length: Max sequence length
-        max_samples_per_dataset: Cap samples per dataset (for balanced mixing)
+        max_samples_per_dataset: Global cap for all datasets (per-dataset :N takes precedence)
     """
     from datasets import concatenate_datasets
     
     all_datasets = []
     
-    for name in dataset_names:
-        print(f"Loading dataset: {name}")
+    for spec in dataset_names:
+        name, per_dataset_cap = _parse_dataset_spec(spec)
+        print(f"Loading dataset: {name}" + (f" (capped to {per_dataset_cap})" if per_dataset_cap else ""))
         
         # Look up in registry or use as-is
         if name in DATASET_REGISTRY:
@@ -162,10 +184,11 @@ def load_multi_dataset(
             )
             dataset = load_causal_lm_dataset(config, tokenizer)
             
-            # Cap samples if requested (for balanced mixing)
-            if max_samples_per_dataset and len(dataset) > max_samples_per_dataset:
-                dataset = dataset.select(range(max_samples_per_dataset))
-                print(f"  Capped to {max_samples_per_dataset} samples")
+            # Apply per-dataset cap first, then global cap
+            cap = per_dataset_cap or max_samples_per_dataset
+            if cap and len(dataset) > cap:
+                dataset = dataset.select(range(cap))
+                print(f"  Capped to {cap} samples")
             
             print(f"  Loaded {len(dataset)} samples from {name}")
             all_datasets.append(dataset)
@@ -180,6 +203,8 @@ def load_multi_dataset(
     # Concatenate all datasets
     combined = concatenate_datasets(all_datasets)
     combined = combined.shuffle(seed=42)
+    # Re-apply torch format (lost after concatenate/shuffle)
+    combined.set_format(type="torch", columns=["input_ids", "attention_mask", "labels"])
     print(f"Combined dataset: {len(combined)} total samples")
     
     return combined

@@ -1,0 +1,10 @@
+{
+  "pretrain_checkpoint": "/work/09999/aymanmahfuz/ls6/modern_llm_runs/checkpoints/gpu-full-pretrain/gpu-full-pretrain_final.pt",
+  "sft_checkpoint": "/work/09999/aymanmahfuz/ls6/modern_llm_runs/checkpoints/gpu-full-sft/gpu-full-sft_final.pt",
+  "dpo_checkpoint": "/work/09999/aymanmahfuz/ls6/modern_llm_runs/checkpoints/gpu-full-dpo/gpu-full-dpo_final.pt",
+  "verifier_checkpoint": "/work/09999/aymanmahfuz/ls6/modern_llm_runs/checkpoints/gpu-full-verifier/gpu-full-verifier_final.pt",
+  "pretrain_metrics": null,
+  "sft_metrics": null,
+  "dpo_metrics": null,
+  "verifier_metrics": null
+}

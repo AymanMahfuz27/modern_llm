@@ -1,0 +1,26 @@
+{
+  "sentiment_positive": {
+    "self_attention_avg": 0.27614060044288635,
+    "local_attention_avg": 0.11818311363458633,
+    "first_token_attention": 0.2863951027393341,
+    "attention_entropy": 1.5887775421142578
+  },
+  "sentiment_negative": {
+    "self_attention_avg": 0.2845047116279602,
+    "local_attention_avg": 0.11836613714694977,
+    "first_token_attention": 0.2673932611942291,
+    "attention_entropy": 1.5884184837341309
+  },
+  "entity": {
+    "self_attention_avg": 0.23500455915927887,
+    "local_attention_avg": 0.1069089025259018,
+    "first_token_attention": 0.3187233507633209,
+    "attention_entropy": 1.6485716104507446
+  },
+  "math": {
+    "self_attention_avg": 0.18675392866134644,
+    "local_attention_avg": 0.08213712275028229,
+    "first_token_attention": 0.2318599969148636,
+    "attention_entropy": 1.956624150276184
+  }
+}

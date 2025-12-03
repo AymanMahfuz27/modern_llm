@@ -76,27 +76,32 @@ class Trainer:
                         pbar.update(1)
                         
                         # Only log/eval/save when a full step completes
-                    if self.config.log_every > 0 and self.global_step % self.config.log_every == 0:
-                        self.logger.info(
-                            "step=%d loss=%.4f lr=%.3e",
-                            self.global_step,
-                            loss,
-                            self.optimizer.param_groups[0]["lr"],
-                        )
-                    if (
-                        self.config.eval_every > 0
-                        and self.eval_dataloader
-                        and self.global_step % self.config.eval_every == 0
-                    ):
-                        metrics = self.evaluate()
-                        self.logger.info(
-                            "eval step=%d loss=%.4f ppl=%.2f",
-                            self.global_step,
-                            metrics["loss"],
-                            metrics["perplexity"],
-                        )
-                    if self.config.save_every > 0 and self.global_step % self.config.save_every == 0:
-                        self._save_checkpoint()
+                        if self.config.log_every > 0 and self.global_step % self.config.log_every == 0:
+                            self.logger.info(
+                                "step=%d loss=%.4f lr=%.3e",
+                                self.global_step,
+                                loss,
+                                self.optimizer.param_groups[0]["lr"],
+                            )
+                        if (
+                            self.config.eval_every > 0
+                            and self.eval_dataloader
+                            and self.global_step > 0  # Skip step 0
+                            and self.global_step % self.config.eval_every == 0
+                        ):
+                            metrics = self.evaluate()
+                            self.logger.info(
+                                "eval step=%d loss=%.4f ppl=%.2f",
+                                self.global_step,
+                                metrics["loss"],
+                                metrics["perplexity"],
+                            )
+                        if (
+                            self.config.save_every > 0
+                            and self.global_step > 0  # Skip step 0
+                            and self.global_step % self.config.save_every == 0
+                        ):
+                            self._save_checkpoint()
                     
                     if self.global_step >= max_steps:
                         break
@@ -174,12 +179,12 @@ class Trainer:
 
         # If the model was compiled, unwrap to the original module for checkpointing
         model_for_state = getattr(self.model, "_orig_mod", self.model)
-
+        
         config_dict = None
         config_obj = getattr(model_for_state, "config", None)
         if config_obj is not None and hasattr(config_obj, "__dict__"):
             config_dict = {k: v for k, v in config_obj.__dict__.items() if not k.startswith("_")}
-
+        
         save_checkpoint(
             path,
             model_state=model_for_state.state_dict(),

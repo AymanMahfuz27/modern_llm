@@ -254,6 +254,30 @@ Stages:
         help="Override max training steps (useful for testing)",
     )
     parser.add_argument(
+        "--pretrain-steps",
+        type=int,
+        default=None,
+        help="Override pretrain max steps",
+    )
+    parser.add_argument(
+        "--sft-steps",
+        type=int,
+        default=None,
+        help="Override SFT max steps",
+    )
+    parser.add_argument(
+        "--dpo-steps",
+        type=int,
+        default=None,
+        help="Override DPO max steps",
+    )
+    parser.add_argument(
+        "--pretrain-datasets",
+        type=str,
+        default=None,
+        help="Comma-separated list of pretrain datasets",
+    )
+    parser.add_argument(
         "--force",
         action="store_true",
         help="Overwrite existing reports/results",
@@ -278,6 +302,14 @@ Stages:
         config.sft_max_steps = min(args.max_steps, config.sft_max_steps)
         config.dpo_max_steps = min(args.max_steps, config.dpo_max_steps)
         config.verifier_max_steps = min(args.max_steps, config.verifier_max_steps)
+    if args.pretrain_steps:
+        config.pretrain_max_steps = args.pretrain_steps
+    if args.sft_steps:
+        config.sft_max_steps = args.sft_steps
+    if args.dpo_steps:
+        config.dpo_max_steps = args.dpo_steps
+    if args.pretrain_datasets:
+        config.pretrain_datasets = [d.strip() for d in args.pretrain_datasets.split(",")]
 
     # Set output directory
     output_dir = args.output_dir or Path("experiments/runs") / config.run_name

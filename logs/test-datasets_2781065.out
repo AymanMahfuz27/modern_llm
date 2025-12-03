@@ -1,0 +1,103 @@
+==============================================
+Dataset & Evaluation Test
+==============================================
+Time: Mon Dec  1 17:03:21 CST 2025
+
+============================================================
+1. PRETRAINING DATASETS
+============================================================
+
+Testing dataset spec parsing:
+  'wikitext-103-raw-v1' -> name='wikitext-103-raw-v1', cap=None
+  'openwebtext' -> name='openwebtext', cap=None
+  'wikipedia' -> name='wikipedia', cap=None
+  'roneneldan/TinyStories:100000' -> name='roneneldan/TinyStories', cap=100000
+
+Loading pretrain datasets (this may take a few minutes)...
+------------------------------------------------------------
+Loading dataset: wikitext-103-raw-v1
+  Loaded 1801350 samples from wikitext-103-raw-v1
+Loading dataset: openwebtext
+  WARNING: Failed to load openwebtext: Dataset scripts are no longer supported, but found openwebtext.py
+Loading dataset: wikipedia
+  Loaded 6407814 samples from wikipedia
+Loading dataset: roneneldan/TinyStories (capped to 100000)
+  Capped to 100000 samples
+  Loaded 100000 samples from roneneldan/TinyStories
+Combined dataset: 8309164 total samples
+
+✓ Pretrain datasets loaded successfully!
+  Total samples: 8309164
+  Sample text: In the past, Javanese administrative practices regulated public affairs and set behavioral norms in ...
+
+
+============================================================
+2. SFT DATASETS
+============================================================
+
+Loading: tatsu-lab/alpaca
+  ✓ Available. Sample keys: ['instruction', 'input', 'output', 'text']
+  ✓ Loaded 52002 samples (total available: 52002)
+  Text fields found: ['text', 'instruction', 'input', 'output']
+
+Loading: databricks/databricks-dolly-15k
+  ✓ Available. Sample keys: ['instruction', 'context', 'response', 'category']
+  ✓ Loaded 15011 samples (total available: 15011)
+  Text fields found: ['instruction', 'response']
+
+Loading: Open-Orca/OpenOrca (cap: 50000)
+  ✓ Available. Sample keys: ['id', 'system_prompt', 'question', 'response']
+  ✓ Loaded 50000 samples (total available: 4233923)
+  Text fields found: ['response', 'question']
+
+
+============================================================
+3. EVALUATION PROMPT FORMAT TEST
+============================================================
+
+New prompt format test:
+
+  Text: 'This movie was absolutely wonderful!...'
+  Prompt length: 71 tokens
+  'positive' token ID: 3967
+  'negative' token ID: 4633
+
+  Text: 'I hated every minute of this terrible film....'
+  Prompt length: 74 tokens
+  'positive' token ID: 3967
+  'negative' token ID: 4633
+
+  Text: 'It was okay, nothing special....'
+  Prompt length: 72 tokens
+  'positive' token ID: 3967
+  'negative' token ID: 4633
+
+✓ Prompt format is valid
+
+
+============================================================
+4. CHINCHILLA CHECK FOR NEW CONFIG
+============================================================
+Model parameters:     253M
+Training steps:       80,000
+Batch size:           128
+Sequence length:      1024
+Tokens to see:        10.5B
+
+Chinchilla optimal:   5.06B tokens
+Ratio (actual/opt):   2.1x
+
+ℹ️  Slightly overtrained, but acceptable for diverse data
+
+
+============================================================
+TEST COMPLETE
+============================================================
+Time: 2025-12-01 18:33:03.577311
+
+If all tests passed, you can proceed with:
+  1. Remove old checkpoints: rm -rf ${WORK}/modern_llm_runs/checkpoints/*
+  2. Remove old logs: rm -rf ${WORK}/modern_llm_runs/logs/*
+  3. Dispatch training: sbatch scripts/tacc_pipeline.slurm
+
+Test complete!

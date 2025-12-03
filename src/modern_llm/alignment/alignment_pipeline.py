@@ -139,7 +139,6 @@ class AlignmentPipeline:
 
         # Stage 1: Pretrain (or reuse existing)
         if skip_pretrain:
-            # Explicitly requested to skip training and just use an existing checkpoint.
             if pretrain_checkpoint:
                 self.state.pretrain_checkpoint = pretrain_checkpoint
                 self.logger.info(f"[Stage 1/4] Using provided pretrain checkpoint: {pretrain_checkpoint}")
@@ -148,7 +147,6 @@ class AlignmentPipeline:
             else:
                 raise ValueError("No pretrain checkpoint available. Either run pretrain or provide one.")
         else:
-            # If we already have a pretrain checkpoint recorded in state, don't redo it.
             if self.state.pretrain_checkpoint and not pretrain_checkpoint:
                 self.logger.info(
                     f"[Stage 1/4] Pretraining already completed, reusing checkpoint: {self.state.pretrain_checkpoint}"

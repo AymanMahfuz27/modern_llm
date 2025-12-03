@@ -5,7 +5,7 @@
 #SBATCH -p gpu-h100
 #SBATCH -N 1
 #SBATCH -n 1
-#SBATCH -t 24:00:00
+#SBATCH -t 48:00:00
 #SBATCH --exclude=c318-001
 #SBATCH -A ASC25078
 
@@ -92,10 +92,16 @@ else
     echo "Running Full Pipeline (Pretrain -> SFT -> DPO -> Verifier)"
     echo "=============================================="
 
+    # Extended training: 80K pretrain, 10K SFT, 6K DPO
+    # Diverse pretraining with downsampled TinyStories (100K samples to avoid story-mode collapse)
     python -u scripts/run_pipeline.py \
         --config gpu \
         --stage all \
         --output-dir "${WORK_DIR}/checkpoints" \
+        --pretrain-steps 80000 \
+        --sft-steps 10000 \
+        --dpo-steps 6000 \
+        --pretrain-datasets "wikitext-103-raw-v1,openwebtext,wikipedia,roneneldan/TinyStories:100000" \
         | tee "${WORK_DIR}/logs/pipeline_${SLURM_JOB_ID}.log"
 
     echo ""

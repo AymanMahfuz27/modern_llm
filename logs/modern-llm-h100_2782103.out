@@ -1,0 +1,154 @@
+==============================================
+Modern LLM Pipeline - Starting
+==============================================
+Job ID: 2782103
+Node: c318-003
+Time: Tue Dec  2 09:40:31 CST 2025
+Project Dir: /home1/09999/aymanmahfuz/modern_llm
+Work Dir: /work/09999/aymanmahfuz/ls6/modern_llm_runs
+
+GPU Info:
+name, memory.total [MiB], driver_version
+NVIDIA H100 PCIe, 81559 MiB, 570.195.03
+NVIDIA H100 PCIe, 81559 MiB, 570.195.03
+
+==============================================
+Running Full Pipeline (Pretrain -> SFT -> DPO -> Verifier)
+==============================================
+Using config preset: gpu
+
+============================================================
+Modern LLM Pipeline
+============================================================
+Config:       gpu
+Run name:     gpu-full
+Stage:        all
+Output dir:   /work/09999/aymanmahfuz/ls6/modern_llm_runs/checkpoints
+Model:        d=1024, L=12, H=16
+Start time:   2025-12-02 09:41:59
+============================================================
+
+Loading 4 datasets: ['wikitext-103-raw-v1', 'openwebtext', 'wikipedia', 'roneneldan/TinyStories:100000']
+Loading dataset: wikitext-103-raw-v1
+  Loaded 1801350 samples from wikitext-103-raw-v1
+Loading dataset: openwebtext
+  WARNING: Failed to load openwebtext: Dataset scripts are no longer supported, but found openwebtext.py
+Loading dataset: wikipedia
+  Loaded 6407814 samples from wikipedia
+Loading dataset: roneneldan/TinyStories (capped to 100000)
+  Capped to 100000 samples
+  Loaded 100000 samples from roneneldan/TinyStories
+Combined dataset: 8309164 total samples
+Model: 252.9M parameters
+Loading pretrained model from /work/09999/aymanmahfuz/ls6/modern_llm_runs/checkpoints/gpu-full-pretrain/gpu-full-pretrain_final.pt
+Model: 252.9M parameters
+Loading instruction dataset: tatsu-lab/alpaca
+Training examples: 52002
+Starting SFT for 10000 steps
+SFT complete. Final checkpoint: /work/09999/aymanmahfuz/ls6/modern_llm_runs/checkpoints/gpu-full-sft/gpu-full-sft_final.pt
+Loading SFT model from /work/09999/aymanmahfuz/ls6/modern_llm_runs/checkpoints/gpu-full-sft/gpu-full-sft_final.pt
+Model: 252.9M parameters
+Loading preference dataset: Anthropic/hh-rlhf
+Preference pairs: 160800
+Starting DPO for 6000 steps (beta=0.1)
+DPO complete. Final checkpoint: /work/09999/aymanmahfuz/ls6/modern_llm_runs/checkpoints/gpu-full-dpo/gpu-full-dpo_final.pt
+Verifier: 38.9M parameters
+Loading verifier dataset: gsm8k
+Training examples: 14946
+Starting verifier training for 3000 steps
+Verifier training complete. Final checkpoint: /work/09999/aymanmahfuz/ls6/modern_llm_runs/checkpoints/gpu-full-verifier/gpu-full-verifier_final.pt
+
+============================================================
+Pipeline complete!
+============================================================
+Checkpoints:
+  Pretrain: /work/09999/aymanmahfuz/ls6/modern_llm_runs/checkpoints/gpu-full-pretrain/gpu-full-pretrain_final.pt
+  SFT:      /work/09999/aymanmahfuz/ls6/modern_llm_runs/checkpoints/gpu-full-sft/gpu-full-sft_final.pt
+  DPO:      /work/09999/aymanmahfuz/ls6/modern_llm_runs/checkpoints/gpu-full-dpo/gpu-full-dpo_final.pt
+  Verifier: /work/09999/aymanmahfuz/ls6/modern_llm_runs/checkpoints/gpu-full-verifier/gpu-full-verifier_final.pt
+
+Finished at: 2025-12-03 13:00:20
+
+==============================================
+Pipeline Training Complete!
+==============================================
+
+==============================================
+Running Task Evaluations
+==============================================
+Found DPO checkpoint for evaluation: /work/09999/aymanmahfuz/ls6/modern_llm_runs/checkpoints/gpu-full-dpo/gpu-full-dpo_final.pt
+
+Evaluating HF baseline: gpt2
+  Evaluating SST-2...
+
+Evaluating HF baseline: distilgpt2
+  Evaluating SST-2...
+
+Evaluating stage: pretrain (/work/09999/aymanmahfuz/ls6/modern_llm_runs/checkpoints/gpu-full-pretrain/gpu-full-pretrain_final.pt)
+  Evaluating SST-2...
+  Evaluating GSM8K...
+
+Evaluating stage: sft (/work/09999/aymanmahfuz/ls6/modern_llm_runs/checkpoints/gpu-full-sft/gpu-full-sft_final.pt)
+  Evaluating SST-2...
+  Evaluating GSM8K...
+
+Evaluating stage: dpo (/work/09999/aymanmahfuz/ls6/modern_llm_runs/checkpoints/gpu-full-dpo/gpu-full-dpo_final.pt)
+  Evaluating SST-2...
+  Evaluating GSM8K...
+
+==================================================
+Evaluation Complete
+==================================================
+
+Results saved to /work/09999/aymanmahfuz/ls6/modern_llm_runs/results/
+
+Comparison Table:
+| Model | SST-2 Acc | GSM8K EM | Notes |
+|-------|-----------|----------|-------|
+| gpt2 | 56.0% | N/A | HF Baseline |
+| distilgpt2 | 56.0% | N/A | HF Baseline |
+| gpu-full-pretrain_final | 49.5% | N/A | pretrain |
+| gpu-full-sft_final | 53.5% | N/A | sft |
+| gpu-full-dpo_final | 49.5% | N/A | dpo |
+Loading model: /work/09999/aymanmahfuz/ls6/modern_llm_runs/checkpoints/gpu-full-dpo/gpu-full-dpo_final.pt
+  Model: d_model=1024, n_layers=12, n_heads=16
+
+Processing: sentiment_positive
+  Text: I absolutely love this amazing movie, it's fantast...
+  Saved: /work/09999/aymanmahfuz/ls6/modern_llm_runs/figures/attention_sentiment_positive.png
+  Self-attn: 0.276, Local: 0.118, Entropy: 1.589
+
+Processing: sentiment_negative
+  Text: This terrible film was boring and completely unwat...
+  Saved: /work/09999/aymanmahfuz/ls6/modern_llm_runs/figures/attention_sentiment_negative.png
+  Self-attn: 0.285, Local: 0.118, Entropy: 1.588
+
+Processing: entity
+  Text: The quick brown fox jumps over the lazy dog near P...
+  Saved: /work/09999/aymanmahfuz/ls6/modern_llm_runs/figures/attention_entity.png
+  Self-attn: 0.235, Local: 0.107, Entropy: 1.649
+
+Processing: math
+  Text: If John has 5 apples and gives 2 to Mary, how many...
+  Saved: /work/09999/aymanmahfuz/ls6/modern_llm_runs/figures/attention_math.png
+  Self-attn: 0.187, Local: 0.082, Entropy: 1.957
+
+Summary saved to /work/09999/aymanmahfuz/ls6/modern_llm_runs/figures/attention_summary.json
+Observations saved to /work/09999/aymanmahfuz/ls6/modern_llm_runs/figures/attention_observations.md
+
+==============================================
+Generating Final Report
+==============================================
+Final report saved to: /home1/09999/aymanmahfuz/modern_llm/report/final_tacc_report.md
+
+==============================================
+All Done!
+==============================================
+Checkpoints: /work/09999/aymanmahfuz/ls6/modern_llm_runs/checkpoints/
+Results: /work/09999/aymanmahfuz/ls6/modern_llm_runs/results/
+Figures: /work/09999/aymanmahfuz/ls6/modern_llm_runs/figures/
+Time: Wed Dec  3 13:11:20 CST 2025
+
+Results copied to /home1/09999/aymanmahfuz/modern_llm/experiments/results/
+Figures copied to /home1/09999/aymanmahfuz/modern_llm/report/figures/
+Final report at /home1/09999/aymanmahfuz/modern_llm/report/final_tacc_report.md
