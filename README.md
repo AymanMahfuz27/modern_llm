@@ -6,14 +6,25 @@ A from-scratch implementation of a **frontier-style LLM training pipeline**, dem
 
 ## Results
 
-| Model | Parameters | WikiText-2 PPL |
-|-------|------------|----------------|
-| GPT-2 (baseline) | 124M | 40.64 |
-| **Ours (pretrain)** | 253M | **27.03** |
-| Ours (SFT) | 253M | 34.14 |
-| Ours (DPO) | 253M | 34.32 |
+### Perplexity (WikiText-2)
 
-*Full results in `experiments/comparison_log_v2.txt`.*
+| Model | Parameters | PPL | vs GPT-2 |
+|-------|------------|-----|----------|
+| GPT-2 (baseline) | 124M | 40.64 | — |
+| **Ours (pretrain)** | 253M | **27.03** | **-33%** |
+| Ours (SFT) | 253M | 34.14 | -16% |
+| Ours (DPO) | 253M | 34.32 | -16% |
+
+### Task Metrics (Few-Shot)
+
+| Model | SST-2 Acc | GSM8K EM |
+|-------|-----------|----------|
+| GPT-2 | 56.0% | N/A |
+| Ours (pretrain) | 49.5% | 0.0% |
+| Ours (SFT) | 53.5% | 0.0% |
+| Ours (DPO) | 49.5% | 0.0% |
+
+*Note: Task metrics below baseline due to training data distribution differences and prompt sensitivity. GSM8K 0% is expected for 253M models. Full analysis in `report/final_tacc_report.md`.*
 
 ---
 
